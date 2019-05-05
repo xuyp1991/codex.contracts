@@ -15,7 +15,6 @@ namespace force {
       stats statstable( _self, sym.code().raw() );
       auto existing = statstable.find( sym.code().raw() );
       eosio_assert( existing == statstable.end(), "token with symbol already exists" );
-      print("-------token::create-----------\n");
       statstable.emplace( _self, [&]( auto& s ) {
          s.supply.symbol = maximum_supply.symbol;
          s.max_supply    = maximum_supply;
@@ -24,7 +23,6 @@ namespace force {
    }
 
    ACTION token::issue( account_name to, asset quantity, string memo ) {
-      print("-------token::issue-----------\n");
       auto sym = quantity.symbol;
       eosio_assert( sym.is_valid(), "invalid symbol name" );
       eosio_assert( memo.size() <= 256, "memo has more than 256 bytes" );
@@ -57,7 +55,6 @@ namespace force {
                   account_name to,
                   asset        quantity,
                   string       memo ) {
-      print("-------token::transfer-----------\n");
       eosio_assert( from != to, "cannot transfer to self" );
       require_auth( from );
       eosio_assert( is_account( to ), "to account does not exist");

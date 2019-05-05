@@ -1,18 +1,9 @@
 #pragma once
-#include <eosiolib/eosio.hpp>
-#include <eosiolib/asset.hpp>
-using namespace eosio;
+#include <../../codexlib/config.hpp>
 
-namespace force {
-   typedef name account_name;
-   typedef name action_name;
-   typedef std::vector<char> bytes;
+namespace force {   
    using std::vector;
    using std::string;
-
-   #define CORE_SYMBOL symbol(symbol_code("CDX"), 4)
-   #define SYSTEM_ACCOUNT_NAME name("force"_n)
-   #define TOKEN_ACCOUNT_NAME name("force.token"_n)
 
    class [[eosio::contract("force.relay")]] relay : public contract {
       public:

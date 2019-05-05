@@ -1,72 +1,46 @@
 #pragma once
 
-#include <eosiolib/eosio.hpp>
-#include <eosiolib/asset.hpp>
+
 #include <eosiolib/time.hpp>
 #include <eosiolib/chain.h>
 #include <eosiolib/action.hpp>
 #include <eosiolib/privileged.hpp>
-
-using namespace eosio;
-
-#define BEFORE_ONLINE_TEST 1
+#include <../../codexlib/config.hpp>
 
 namespace eosiosystem {
    using eosio::asset;
    using eosio::print;
-   //using eosio::bytes;
    using eosio::block_timestamp;
    using std::string;
    using eosio::permission_level;
    using std::vector;
 
-   typedef name account_name;
-   typedef name action_name;
-   typedef uint16_t weight_type;
-   typedef  checksum256 transaction_id_type;
-   typedef  checksum256 block_id_type;
-   typedef  std::vector<char> bytes;
-   typedef uint64_t permission_name;
 
-   #define CORE_SYMBOL symbol(symbol_code("CDX"), 4)
-
-   static constexpr eosio::name token_account{"force.token"_n};
-   static constexpr eosio::name system_account{"force"_n};
-   static constexpr eosio::name active_permission{"active"_n};
-   static constexpr eosio::name reward_account{"force.reward"_n};
-
-
-   static constexpr uint32_t FROZEN_DELAY = 3*24*60*60; // 3 * 24 * 60 * 20; //3*24*60*20*3s;
-   static constexpr int NUM_OF_TOP_BPS = 21;//23;
 #ifdef BEFORE_ONLINE_TEST   
-   static constexpr uint32_t UPDATE_CYCLE = 63;//42;//CONTRACT_UPDATE_CYCLE;//630; 
    static constexpr uint32_t CYCLE_PREDAY = 50;//5;//275;
    static constexpr uint32_t STABLE_DAY = 10;//2;//60;
    static constexpr uint64_t PRE_BLOCK_REWARDS = 58.6*10000;
    static constexpr uint64_t STABLE_BLOCK_REWARDS = 126*10000;
 #else
-   static constexpr uint32_t UPDATE_CYCLE = 315;//42;//CONTRACT_UPDATE_CYCLE;//630; 
    static constexpr uint32_t CYCLE_PREDAY = 275;//5;//275;
    static constexpr uint32_t STABLE_DAY = 60;//2;//60;
    static constexpr uint64_t STABLE_BLOCK_REWARDS = 630*10000;
    static constexpr uint64_t PRE_BLOCK_REWARDS = 143*10000;
 #endif
-   static constexpr uint32_t STABLE_BLOCK_HEIGHT = UPDATE_CYCLE * CYCLE_PREDAY * STABLE_DAY;
+   static constexpr uint32_t STABLE_BLOCK_HEIGHT = config::UPDATE_CYCLE * CYCLE_PREDAY * STABLE_DAY;
    static constexpr uint32_t PRE_GRADIENT = 10250;
    static constexpr uint32_t STABLE_GRADIENT = 10010;
-   static constexpr uint32_t REWARD_MODIFY_COUNT = UPDATE_CYCLE * CYCLE_PREDAY;
+   static constexpr uint32_t REWARD_MODIFY_COUNT = config::UPDATE_CYCLE * CYCLE_PREDAY;
 
    static constexpr uint64_t REWARD_ID = 1;
    static constexpr uint64_t BLOCK_OUT_WEIGHT = 1000;
    static constexpr uint64_t MORTGAGE = 8228;
-   static constexpr uint32_t PER_CYCLE_AMOUNT = UPDATE_CYCLE / NUM_OF_TOP_BPS; 
+   static constexpr uint32_t PER_CYCLE_AMOUNT = config::UPDATE_CYCLE / config::NUM_OF_TOP_BPS; 
 
    static constexpr uint32_t REWARD_DEVELOP = 900;
    static constexpr uint32_t REWARD_BP = 100;
    static constexpr uint32_t REWARD_FUND = 100;
    static constexpr uint32_t REWARD_MINE = 10000 - REWARD_DEVELOP - REWARD_BP;
-
-   static constexpr uint64_t OTHER_COIN_WEIGHT = 500;
 
    static constexpr account_name CREATION_BP[26] = {name("biosbpa"_n),name("biosbpb"_n),name("biosbpc"_n),name("biosbpd"_n),name("biosbpe"_n),name("biosbpf"_n),
    name("biosbpg"_n),name("biosbph"_n),name("biosbpi"_n),name("biosbpj"_n),name("biosbpk"_n),name("biosbpl"_n),name("biosbpm"_n),name("biosbpn"_n),

@@ -12,15 +12,15 @@ namespace eosiosystem {
       bps_table bps_tbl(_self, _self.value);
       schedules_table schs_tbl(_self, _self.value);
 
-      uint64_t block_producers[NUM_OF_TOP_BPS] = {};
-      get_active_producers(block_producers, sizeof(account_name) * NUM_OF_TOP_BPS);
+      uint64_t block_producers[config::NUM_OF_TOP_BPS] = {};
+      get_active_producers(block_producers, sizeof(account_name) * config::NUM_OF_TOP_BPS);
       auto sch = schs_tbl.find(uint64_t(schedule_version));
       //print("-------system_contract::onblock-----18----\n");
       if( sch == schs_tbl.end()) {
          schs_tbl.emplace(bpname, [&]( schedule_info& s ) {
             s.version = schedule_version;
             s.block_height = current_block_num();          
-            for( int i = 0; i < NUM_OF_TOP_BPS; i++ ) {
+            for( int i = 0; i < config::NUM_OF_TOP_BPS; i++ ) {
                s.producers[i].amount = block_producers[i] == bpname.value ? 1 : 0;
                s.producers[i].bpname = name(block_producers[i]);
             }
@@ -28,7 +28,7 @@ namespace eosiosystem {
          reset_block_weight(block_producers);
       } else {
          schs_tbl.modify(sch, _self, [&]( schedule_info& s ) {
-            for( int i = 0; i < NUM_OF_TOP_BPS; i++ ) {
+            for( int i = 0; i < config::NUM_OF_TOP_BPS; i++ ) {
                if( s.producers[i].bpname == bpname ) {
                   s.producers[i].amount += 1;
                   break;
@@ -37,7 +37,7 @@ namespace eosiosystem {
          });
       }
       //print("-------system_contract::onblock-----38----\n");
-      if( current_block_num() % UPDATE_CYCLE == 0 ) {
+      if( current_block_num() % config::UPDATE_CYCLE == 0 ) {
 
          reward_table reward_inf(_self,_self.value);
          auto reward = reward_inf.find(REWARD_ID);
@@ -57,8 +57,8 @@ namespace eosiosystem {
             });
          }
 
-         INLINE_ACTION_SENDER(force::token, issue)( token_account, {{system_account,active_permission}},
-                                             { reward_account, 
+         INLINE_ACTION_SENDER(force::token, issue)( config::token_account, {{config::system_account,config::active_permission}},
+                                             { config::reward_account, 
                                              asset(block_rewards,CORE_SYMBOL), 
                                              "issue tokens for producer pay"} );
          
@@ -124,7 +124,7 @@ namespace eosiosystem {
       bps_table bps_tbl(_self, _self.value);
       
       std::vector<eosio::producer_key> vote_schedule;
-      std::vector<int64_t> sorts(NUM_OF_TOP_BPS, 0);
+      std::vector<int64_t> sorts(config::NUM_OF_TOP_BPS, 0);
 
       creation_producer creation_bp_tbl(_self,_self.value);
       auto create_bp = creation_bp_tbl.find(CREATION_BP[0].value);
@@ -139,10 +139,10 @@ namespace eosiosystem {
          reward = reward_inf.find(REWARD_ID);
       }
 
-      int64_t reward_pre_block = reward->cycle_reward / UPDATE_CYCLE;
+      int64_t reward_pre_block = reward->cycle_reward / config::UPDATE_CYCLE;
       auto block_mortgege = reward_pre_block * MORTGAGE;
       for( auto it = bps_tbl.cbegin(); it != bps_tbl.cend(); ++it ) {
-         for( int i = 0; i < NUM_OF_TOP_BPS; ++i ) {
+         for( int i = 0; i < config::NUM_OF_TOP_BPS; ++i ) {
             auto total_shaked = it->total_staked;
             auto bp_mortgage = it->mortgage;
             create_bp = creation_bp_tbl.find(it->name.value);
@@ -161,8 +161,8 @@ namespace eosiosystem {
          }
       }
 
-      if( vote_schedule.size() > NUM_OF_TOP_BPS ) {
-         vote_schedule.resize(NUM_OF_TOP_BPS);
+      if( vote_schedule.size() > config::NUM_OF_TOP_BPS ) {
+         vote_schedule.resize(config::NUM_OF_TOP_BPS);
       }
 
       std::sort(vote_schedule.begin(), vote_schedule.end());
@@ -209,8 +209,8 @@ namespace eosiosystem {
          init_reward_info();
          reward = reward_inf.find(REWARD_ID);
       }
-      int64_t reward_pre_block = reward->cycle_reward / UPDATE_CYCLE;
-      for( int i = 0; i < NUM_OF_TOP_BPS; i++ ) {
+      int64_t reward_pre_block = reward->cycle_reward / config::UPDATE_CYCLE;
+      for( int i = 0; i < config::NUM_OF_TOP_BPS; i++ ) {
          auto bp = bps_tbl.find(sch->producers[i].bpname.value);
          eosio_assert(bp != bps_tbl.end(),"cannot find bpinfo");
          if(bp->mortgage < asset(MORTGAGE * reward_pre_block,CORE_SYMBOL)) {
@@ -292,7 +292,7 @@ namespace eosiosystem {
 
    void system_contract::reset_block_weight(uint64_t block_producers[]) {
       bps_table bps_tbl(_self, _self.value);
-      for( int i = 0; i < NUM_OF_TOP_BPS; i++ ) {
+      for( int i = 0; i < config::NUM_OF_TOP_BPS; i++ ) {
          const auto& bp = bps_tbl.get(block_producers[i], "bpname is not registered");
          bps_tbl.modify(bp, _self, [&]( bp_info& b ) {
             b.block_weight = BLOCK_OUT_WEIGHT;
@@ -336,9 +336,9 @@ namespace eosiosystem {
          });
 
       INLINE_ACTION_SENDER(force::token, transfer)(
-               token_account,
-               { payer, active_permission },
-               { payer, reward_account, quantity, "add mortgage" });
+               config::token_account,
+               { payer, config::active_permission },
+               { payer, config::reward_account, quantity, "add mortgage" });
    }
 
    ACTION system_contract::claimmortgage(const account_name bpname,const account_name receiver,asset quantity) {
@@ -353,9 +353,9 @@ namespace eosiosystem {
          });
       
       INLINE_ACTION_SENDER(force::token, transfer)(
-         token_account,
-         { reward_account, active_permission },
-         { reward_account, receiver, quantity, "claim bp mortgage" });
+         config::token_account,
+         { config::reward_account, config::active_permission },
+         { config::reward_account, receiver, quantity, "claim bp mortgage" });
    }
 
    ACTION system_contract::claimdevelop(const account_name develop) {
@@ -371,9 +371,9 @@ namespace eosiosystem {
       });
       eosio_assert(reward_develop > asset(100000,CORE_SYMBOL),"claim amount must > 10");
       INLINE_ACTION_SENDER(force::token, castcoin)(
-         token_account,
-         { reward_account, "active"_n },
-         { reward_account, develop, reward_develop });
+         config::token_account,
+         { config::reward_account, "active"_n },
+         { config::reward_account, develop, reward_develop });
    }
 
    ACTION system_contract::claimbp(const account_name bpname,const account_name receiver) {
@@ -402,9 +402,9 @@ namespace eosiosystem {
          });
       eosio_assert(claim_block > asset(100000,CORE_SYMBOL),"claim amount must > 10");
       INLINE_ACTION_SENDER(force::token, castcoin)(
-         token_account,
-         { reward_account, active_permission },
-         { reward_account, receiver, claim_block });
+         config::token_account,
+         { config::reward_account, config::active_permission },
+         { config::reward_account, receiver, claim_block });
    }
 
    ACTION system_contract::claimvote(const account_name bpname,const account_name receiver) {
@@ -417,7 +417,7 @@ namespace eosiosystem {
       const auto& vts = votes_tbl.get(bpname.value, "voter have not add votes to the the producer yet");
 
       const auto curr_block_num = current_block_num();
-      const auto last_devide_num = curr_block_num - (curr_block_num % UPDATE_CYCLE);
+      const auto last_devide_num = curr_block_num - (curr_block_num % config::UPDATE_CYCLE);
 
       const auto newest_voteage =
             static_cast<int128_t>(vts.voteage + vts.vote.amount / 10000 * (last_devide_num - vts.voteage_update_height));
@@ -437,9 +437,9 @@ namespace eosiosystem {
 
       eosio_assert(reward_all> asset(100000,CORE_SYMBOL),"claim amount must > 10");
       INLINE_ACTION_SENDER(force::token, castcoin)(
-            token_account,
-            { reward_account, active_permission },
-            { reward_account, receiver, reward_all});
+            config::token_account,
+            { config::reward_account, config::active_permission },
+            { config::reward_account, receiver, reward_all});
 
       votes_tbl.modify(vts, _self, [&]( vote_info& v ) {
          v.voteage = 0;
@@ -457,7 +457,7 @@ namespace eosiosystem {
    }
 
    bool system_contract::is_super_bp( account_name block_producers[], account_name name ) {
-      for( int i = 0; i < NUM_OF_TOP_BPS; i++ ) {
+      for( int i = 0; i < config::NUM_OF_TOP_BPS; i++ ) {
          if( name == block_producers[i] ) {
             return true;
          }

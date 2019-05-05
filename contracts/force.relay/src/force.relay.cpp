@@ -254,10 +254,10 @@ extern "C" {
    void apply( uint64_t receiver, uint64_t code, uint64_t action ) {
       auto self = receiver;
       if( action == name("onerror"_n).value) {
-         eosio_assert(code == SYSTEM_ACCOUNT_NAME.value, "onerror action's are only valid from the \"eosio\" system account");
+         eosio_assert(code == config::system_account.value, "onerror action's are only valid from the \"eosio\" system account");
       }
 
-      if ((code == TOKEN_ACCOUNT_NAME.value) && (action == name("transfer"_n).value)) {
+      if ((code == config::token_account.value) && (action == name("transfer"_n).value)) {
          //force::relay thiscontract( self );
          execute_action(name(receiver),name(code), &force::relay::ontransfer);
          return;

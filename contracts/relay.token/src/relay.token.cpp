@@ -50,7 +50,7 @@ namespace relay {
       eosio_assert(quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
 
       auto current_block = current_block_num();
-      auto last_devidend_num = current_block - current_block % UPDATE_CYCLE;
+      auto last_devidend_num = current_block - current_block % config::UPDATE_CYCLE;
 
       statstable.modify(st, chain, [&]( auto& s ) {
          if (s.total_mineage_update_height < last_devidend_num) {
@@ -92,7 +92,7 @@ namespace relay {
       eosio_assert(quantity.amount <= st.supply.amount, "quantity exceeds available supply");
 
       auto current_block = current_block_num();
-      auto last_devidend_num = current_block - current_block % UPDATE_CYCLE;
+      auto last_devidend_num = current_block - current_block % config::UPDATE_CYCLE;
       statstable.modify(st, chain, [&]( auto& s ) {
          if (s.total_mineage_update_height < last_devidend_num) {
             s.total_mineage += get_current_age(s.chain,s.supply,s.total_mineage_update_height,last_devidend_num) + s.total_pending_mineage;
@@ -174,7 +174,7 @@ namespace relay {
          stats statstable(_self, it->chain.value);
          auto existing = statstable.find(it->supply.symbol.raw());
          eosio_assert(existing != statstable.end(), "token with symbol already exists");
-         total_power += existing->supply.amount * OTHER_COIN_WEIGHT / 10000 ;
+         total_power += existing->supply.amount * config::OTHER_COIN_WEIGHT / 10000 ;
       }
 
       if (total_power == 0) return ;
@@ -182,7 +182,7 @@ namespace relay {
          stats statstable(_self, it->chain.value);
          auto existing = statstable.find(it->supply.symbol.raw());
          eosio_assert(existing != statstable.end(), "token with symbol already exists");
-         uint64_t devide_amount = quantity.amount * existing->supply.amount * OTHER_COIN_WEIGHT / 10000 / total_power;
+         uint64_t devide_amount = quantity.amount * existing->supply.amount * config::OTHER_COIN_WEIGHT / 10000 / total_power;
          statstable.modify(*existing, it->chain, [&]( auto& s ) {
             s.reward_pool += asset(devide_amount,s.reward_pool.symbol);
          });
@@ -215,7 +215,7 @@ namespace relay {
       const auto& to = idxx.get(get_account_idx(chain, quantity), "no balance object found");
       eosio_assert(to.chain == chain, "symbol chain mismatch");
       auto current_block = current_block_num();
-      auto last_devidend_num = current_block - current_block % UPDATE_CYCLE;
+      auto last_devidend_num = current_block - current_block % config::UPDATE_CYCLE;
 
       auto power = to.mineage;
       if (to.mineage_update_height < last_devidend_num) {
@@ -272,7 +272,7 @@ namespace relay {
       eosio_assert(from.balance.amount >= value.amount, "overdrawn balance");
       eosio_assert(from.chain == chain, "symbol chain mismatch");
       auto current_block = current_block_num();
-      auto last_devidend_num = current_block - current_block % UPDATE_CYCLE;
+      auto last_devidend_num = current_block - current_block % config::UPDATE_CYCLE;
 
       from_acnts.modify(from, owner, [&]( auto& a ) {
          if (a.mineage_update_height < last_devidend_num) {
@@ -294,7 +294,7 @@ namespace relay {
 
       auto to = idx.find(get_account_idx(chain, value));
       auto current_block = current_block_num();
-      auto last_devidend_num = current_block - current_block % UPDATE_CYCLE;
+      auto last_devidend_num = current_block - current_block % config::UPDATE_CYCLE;
       if( to == idx.end() ) {
          uint64_t id = 1;
          auto ids = acntids.find(owner.value);

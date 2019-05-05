@@ -39,8 +39,8 @@ namespace eosiosystem {
 
       if( change > asset{0,CORE_SYMBOL} ) {
          INLINE_ACTION_SENDER(force::token, transfer)(
-            token_account, { {_self, active_permission} },
-            { _self, system_account, change, "unallocated inflation" }
+            config::token_account, { {_self, config::active_permission} },
+            { _self, config::system_account, change, "unallocated inflation" }
          );
       }
    }
@@ -127,13 +127,13 @@ namespace eosiosystem {
 
       const auto curr_block_num = current_block_num();
 
-      eosio_assert(itr.unstake_height + FROZEN_DELAY < curr_block_num, "unfreeze is not available yet");
+      eosio_assert(itr.unstake_height + config::FROZEN_DELAY < curr_block_num, "unfreeze is not available yet");
       eosio_assert(0 < itr.unstaking.amount, "need unstaking quantity > 0");
 
       INLINE_ACTION_SENDER(force::token, transfer)(
-            token_account,
-            { system_account, active_permission },
-            { system_account, voter, itr.unstaking, "unfreeze" });
+            config::token_account,
+            { config::system_account, config::active_permission },
+            { config::system_account, voter, itr.unstaking, "unfreeze" });
 
       freeze_tbl.modify(itr, _self, [&]( freeze_info& v ) {
          v.unstaking.set_amount(0);
@@ -174,9 +174,9 @@ namespace eosiosystem {
 
       eosio_assert(reward_all > asset{}, "no any reward!");
       INLINE_ACTION_SENDER(eosio::token, transfer)(
-            config::token_account_name,
-            { ::config::system_account_name, N(active) },
-            { ::config::system_account_name, voter, reward_all, "claim" });
+            config::config::token_account_name,
+            { ::config::config::system_account_name, N(active) },
+            { ::config::config::system_account_name, voter, reward_all, "claim" });
 
       votes_tbl.modify(vts, 0, [&]( vote_info& v ) {
          v.voteage = 0;

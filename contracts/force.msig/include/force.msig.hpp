@@ -1,10 +1,8 @@
 #pragma once
-#include <eosiolib/eosio.hpp>
 #include <eosiolib/transaction.hpp>
-
+#include <../../codexlib/config.hpp>
 
 namespace eosio {
-   typedef name account_name;
    using std::vector;
    using std::string;
    class [[eosio::contract("force.msig")]] multisig : public contract {

@@ -1,9 +1,4 @@
-#include <eosiolib/eosio.hpp>
-#include <eosiolib/asset.hpp>
-
-using namespace eosio;
-
-typedef name account_name;
+#include <../../codexlib/config.hpp>
 
 enum  class func_type:uint64_t {
    match=1,
@@ -14,7 +9,6 @@ enum  class func_type:uint64_t {
 
 namespace force {
    using std::string;
-   #define CORE_SYMBOL symbol(symbol_code("CDX"), 4)
    static constexpr uint32_t PRE_CAST_NUM = 5184000;
    static constexpr uint32_t STABLE_CAST_NUM = 1209600;
    static constexpr double WEAKEN_CAST_NUM = 2.5;

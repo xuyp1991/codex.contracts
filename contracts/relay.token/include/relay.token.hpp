@@ -1,16 +1,7 @@
-#include <eosiolib/eosio.hpp>
-#include <eosiolib/asset.hpp>
-
+#include <../../codexlib/config.hpp>
 
 namespace relay {
-   using namespace eosio;
    using std::string;
-   typedef name account_name;
-
-   #define CORE_SYMBOL symbol(symbol_code("CDX"), 4)
-   static constexpr uint32_t UPDATE_CYCLE = 630;
-   static constexpr uint64_t OTHER_COIN_WEIGHT = 500;
-   //CONTRACT token : public contract {
    class [[eosio::contract("relay.token")]] token : public contract {
       public:
          using contract::contract;
