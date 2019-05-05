@@ -12,6 +12,21 @@ namespace force {
    static constexpr uint32_t PRE_CAST_NUM = 5184000;
    static constexpr uint32_t STABLE_CAST_NUM = 1209600;
    static constexpr double WEAKEN_CAST_NUM = 2.5;
+
+   struct sys_bridge_addmort {
+      name trade_name;
+      account_name trade_maker;
+      uint64_t type;
+      void parse(const string memo);
+   };
+
+   struct sys_bridge_exchange {
+      name trade_name;
+      account_name trade_maker;
+      account_name recv;
+      uint64_t type;
+      void parse(const string memo);
+   };
    //CONTRACT token : public contract {
    class [[eosio::contract("force.token")]] token : public contract {
       public:
@@ -50,6 +65,7 @@ namespace force {
          using castcoin_action = action_wrapper<"castcoin"_n, &token::castcoin>;
          using takecoin_action = action_wrapper<"takecoin"_n, &token::takecoin>;
       private:
+
          TABLE account {
             asset    balance;
 

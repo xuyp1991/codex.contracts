@@ -21,6 +21,8 @@ namespace config {
    static constexpr eosio::name system_account{"force"_n};
    static constexpr eosio::name active_permission{"active"_n};
    static constexpr eosio::name reward_account{"force.reward"_n};
+   static constexpr eosio::name bridge_account{"sys.bridge"_n};
+   static constexpr eosio::name match_account{"sys.match"_n};
 
    static constexpr uint32_t FROZEN_DELAY = 3*24*60*60;
    static constexpr int NUM_OF_TOP_BPS = 21;
