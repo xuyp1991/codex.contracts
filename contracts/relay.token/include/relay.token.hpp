@@ -2,6 +2,22 @@
 
 namespace relay {
    using std::string;
+
+   struct sys_bridge_addmort {
+      name trade_name;
+      account_name trade_maker;
+      uint64_t type;
+      void parse(const string memo);
+   };
+
+   struct sys_bridge_exchange {
+      name trade_name;
+      account_name trade_maker;
+      account_name recv;
+      uint64_t type;
+      void parse(const string memo);
+   };
+
    class [[eosio::contract("relay.token")]] token : public contract {
       public:
          using contract::contract;

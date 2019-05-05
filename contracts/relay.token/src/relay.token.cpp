@@ -1,5 +1,7 @@
 #include <relay.token.hpp>
 #include <../../force.token/include/force.token.hpp>
+#include <../../sys.bridge/include/sys.bridge.hpp>
+#include <../../sys.match/include/sys.match.hpp>
 
 namespace relay {
 
@@ -143,7 +145,66 @@ namespace relay {
                asset quantity,
                uint64_t type,
                string memo) {
-               }
+      //eosio_assert(memo.size() <= 256, "memo has more than 256 bytes");
+      if (type == static_cast<uint64_t>(func_type::bridge_addmortgage) && to == config::bridge_account) {
+         transfer(from, to, chain, quantity, memo);
+         
+         sys_bridge_addmort bri_add;
+         bri_add.parse(memo);
+         
+         INLINE_ACTION_SENDER(relay::bridge, addmortgage)( 
+            config::bridge_account, 
+            {config::bridge_account, "active"_n},
+            { bri_add.trade_name, 
+            bri_add.trade_maker, 
+            from,
+            chain,
+            quantity, 
+            bri_add.type } );
+         // eosio::action(
+         //    vector<eosio::permission_level>{{SYS_BRIDGE,N(active)}},
+         //    SYS_BRIDGE,
+         //    N(addmortgage),
+         //    std::make_tuple(
+         //          bri_add.trade_name.value,bri_add.trade_maker,from,chain,quantity,bri_add.type
+         //    )
+         // ).send();
+      }
+      else if (type == static_cast<uint64_t>(func_type::bridge_exchange) && to == config::bridge_account) {
+         transfer(from, to, chain, quantity, memo);
+
+         sys_bridge_exchange bri_exchange;
+         bri_exchange.parse(memo);
+         
+         INLINE_ACTION_SENDER(relay::bridge, exchange)( 
+            config::bridge_account, 
+            {config::bridge_account, "active"_n},
+            { bri_exchange.trade_name, 
+            bri_exchange.trade_maker, 
+            from,
+            bri_exchange.recv,
+            chain,
+            quantity, 
+            bri_exchange.type } );
+         // eosio::action(
+         //    vector<eosio::permission_level>{{SYS_BRIDGE,N(active)}},
+         //    SYS_BRIDGE,
+         //    N(exchange),
+         //    std::make_tuple(
+         //          bri_exchange.trade_name.value,bri_exchange.trade_maker,from,bri_exchange.recv,chain,quantity,bri_exchange.type
+         //    )
+         // ).send();
+      }
+      else if(type == static_cast<uint64_t>(func_type::match) && to == config::match_account) {
+         transfer(from, to, chain, quantity, memo);
+         // sys_match_match smm;
+         // smm.parse(memo);
+         // trade_imp(smm.payer, smm.receiver, smm.pair_id, quantity, smm.price, smm.bid_or_ask);
+      }
+      else {
+         eosio_assert(false,"invalid trade type");
+      }
+   }
                   
    void token::trade_imp( account_name payer, account_name receiver, uint32_t pair_id, asset quantity, asset price, uint32_t bid_or_ask ) {}
    /// @abi action
@@ -256,11 +317,12 @@ namespace relay {
       });
 
       eosio_assert(total_reward.amount > 100000,"claim amount must > 10");
-      // eosio::action(
-      //         permission_level{ ::config::reward_account_name, N(active) },
-      //         N(force.token), N(castcoin),
-      //         std::make_tuple(::config::reward_account_name, receiver,total_reward)
-      // ).send();
+      INLINE_ACTION_SENDER(force::token, castcoin)( 
+         config::reward_account, 
+         {config::reward_account, "active"_n},
+         { config::reward_account, 
+         receiver,total_reward } );
+
    }
 
    void token::sub_balance( account_name owner, name chain, asset value ) {
@@ -331,6 +393,67 @@ namespace relay {
             a.balance += value;
          });
       }
+   }
+
+   void splitMemo(std::vector<std::string>& results, const std::string& memo,char separator) {
+      auto start = memo.cbegin();
+      auto end = memo.cend();
+
+      for (auto it = start; it != end; ++it) {
+      if (*it == separator) {
+            results.emplace_back(start, it);
+            start = it + 1;
+      }
+      }
+      if (start != end) results.emplace_back(start, end);
+   }
+
+   uint64_t char_to_symbol( char c ) {
+      if( c >= 'a' && c <= 'z' )
+         return (c - 'a') + 6;
+      if( c >= '1' && c <= '5' )
+         return (c - '1') + 1;
+      return 0;
+   }
+
+   uint64_t string_to_name( const char* str )
+   {
+      uint64_t name = 0;
+      int i = 0;
+      for ( ; str[i] && i < 12; ++i) {
+         // NOTE: char_to_symbol() returns char type, and without this explicit
+         // expansion to uint64 type, the compilation fails at the point of usage
+         // of string_to_name(), where the usage requires constant (compile time) expression.
+         name |= (char_to_symbol(str[i]) & 0x1f) << (64 - 5 * (i + 1));
+      }
+
+      // The for-loop encoded up to 60 high bits into uint64 'name' variable,
+      // if (strlen(str) > 12) then encode str[12] into the low (remaining)
+      // 4 bits of 'name'
+      if (i == 12)
+         name |= char_to_symbol(str[12]) & 0x0F;
+      return name;
+   }
+
+   void sys_bridge_addmort::parse(const string memo) {
+      std::vector<std::string> memoParts;
+      splitMemo(memoParts, memo, ';');
+      eosio_assert(memoParts.size() == 3,"memo is not adapted with bridge_addmortgage");
+      this->trade_name = name(string_to_name(memoParts[0].c_str()));
+      this->trade_maker = name(string_to_name(memoParts[1].c_str()));
+      this->type = atoi(memoParts[2].c_str());
+      eosio_assert(this->type == 1 || this->type == 2,"type is not adapted with bridge_addmortgage");
+   }
+
+   void sys_bridge_exchange::parse(const string memo) {
+      std::vector<std::string> memoParts;
+      splitMemo(memoParts, memo, ';');
+      eosio_assert(memoParts.size() == 4,"memo is not adapted with bridge_addmortgage");
+      this->trade_name = name(string_to_name(memoParts[0].c_str()));
+      this->trade_maker = name(string_to_name(memoParts[1].c_str()));
+      this->recv = name(string_to_name(memoParts[2].c_str()));
+      this->type = atoi(memoParts[3].c_str());
+      eosio_assert(this->type == 1 || this->type == 2,"type is not adapted with bridge_addmortgage");
    }
 
    int64_t token::get_current_age(name chain,asset balance,int64_t first,int64_t last) {return 1;}
