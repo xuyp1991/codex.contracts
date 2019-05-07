@@ -103,7 +103,7 @@ namespace relay{
          
          using addmarket_action = action_wrapper<"addmarket"_n, &bridge::addmarket>;
          using addmortgage_action = action_wrapper<"addmortgage"_n, &bridge::addmortgage>;
-         using claimmortgage_action = action_wrapper<"claimmortgage"_n, &bridge::claimmortgage>;
+         using claimmortgage_action = action_wrapper<"claimortgage"_n, &bridge::claimmortgage>;
          using exchange_action = action_wrapper<"exchange"_n, &bridge::exchange>;
          using frozenmarket_action = action_wrapper<"frozenmarket"_n, &bridge::frozenmarket>;
          using trawmarket_action = action_wrapper<"trawmarket"_n, &bridge::trawmarket>;

@@ -8,14 +8,12 @@ namespace eosiosystem {
     
     ACTION system_contract::onblock( const block_timestamp, const account_name bpname, const uint16_t, const block_id_type,
                                   const checksum256, const checksum256, const uint32_t schedule_version ) {
-      //print("-------system_contract::onblock---------\n");
       bps_table bps_tbl(_self, _self.value);
       schedules_table schs_tbl(_self, _self.value);
 
       uint64_t block_producers[config::NUM_OF_TOP_BPS] = {};
       get_active_producers(block_producers, sizeof(account_name) * config::NUM_OF_TOP_BPS);
       auto sch = schs_tbl.find(uint64_t(schedule_version));
-      //print("-------system_contract::onblock-----18----\n");
       if( sch == schs_tbl.end()) {
          schs_tbl.emplace(bpname, [&]( schedule_info& s ) {
             s.version = schedule_version;
@@ -36,7 +34,6 @@ namespace eosiosystem {
             }
          });
       }
-      //print("-------system_contract::onblock-----38----\n");
       if( current_block_num() % config::UPDATE_CYCLE == 0 ) {
 
          reward_table reward_inf(_self,_self.value);
@@ -115,7 +112,9 @@ namespace eosiosystem {
       creation_producer creation_bp_tbl(_self,_self.value);
       for (int i=0;i!=26;++i) {
          creation_bp_tbl.emplace(_self, [&]( creation_bp& b ) {
-            b.bpname = CREATION_BP[i];
+            b.bpname = CREATION_BP[i].bp_name;
+            b.total_staked = CREATION_BP[i].total_staked;
+            b.mortgage = CREATION_BP[i].mortgage;
          });
       }
    }
@@ -127,7 +126,7 @@ namespace eosiosystem {
       std::vector<int64_t> sorts(config::NUM_OF_TOP_BPS, 0);
 
       creation_producer creation_bp_tbl(_self,_self.value);
-      auto create_bp = creation_bp_tbl.find(CREATION_BP[0].value);
+      auto create_bp = creation_bp_tbl.find(CREATION_BP[0].bp_name.value);
       if (create_bp == creation_bp_tbl.end()) {
          init_creation_bp();
       }
@@ -145,12 +144,28 @@ namespace eosiosystem {
          for( int i = 0; i < config::NUM_OF_TOP_BPS; ++i ) {
             auto total_shaked = it->total_staked;
             auto bp_mortgage = it->mortgage;
-            create_bp = creation_bp_tbl.find(it->name.value);
-            if (create_bp != creation_bp_tbl.end()) {
-               total_shaked = 4000000;
-               bp_mortgage = asset(400000000,CORE_SYMBOL);
+            if (total_shaked == 0) {
+               create_bp = creation_bp_tbl.find(it->name.value);
+               if (create_bp != creation_bp_tbl.end()) {
+                  total_shaked = create_bp->total_staked;
+                  bp_mortgage = asset{create_bp->mortgage,CORE_SYMBOL};
+               }
             }
-            if( sorts[size_t(i)] <= total_shaked && it->isactive && bp_mortgage > asset(block_mortgege,CORE_SYMBOL)) {
+            if (it->active_type == static_cast<int32_t>(active_type::LackMortgage) && it->active_change_block_num < (current_block_num() - LACKMORTGAGE_FREEZE)) {
+               bps_tbl.modify(it, _self, [&]( bp_info& b ) {
+                  b.active_type = static_cast<int32_t>(active_type::Normal);
+               });
+            }
+
+            if (bp_mortgage < asset(block_mortgege,CORE_SYMBOL) && is_super_bp(it->name) ) {
+               bps_tbl.modify(it, _self, [&]( bp_info& b ) {
+                  b.active_type = static_cast<int32_t>(active_type::LackMortgage);
+                  b.active_change_block_num = current_block_num();
+               });
+            }
+            //todo lackMortgage modify
+            if( sorts[size_t(i)] <= total_shaked && it->active_type == static_cast<int32_t>(active_type::Normal)
+             && bp_mortgage > asset(block_mortgege,CORE_SYMBOL)) {
                eosio::producer_key key;
                key.producer_name = it->name;
                key.block_signing_key = it->block_signing_key;
@@ -197,6 +212,8 @@ namespace eosiosystem {
    // TODO it need change if no bonus to accounts
 
    void system_contract::reward_block(const uint32_t schedule_version,const uint64_t reward_amount ) {
+
+      print("----------reward_block------------\n");
       schedules_table schs_tbl(_self, _self.value);
       bps_table bps_tbl(_self, _self.value);
       auto sch = schs_tbl.find(uint64_t(schedule_version));
@@ -209,6 +226,8 @@ namespace eosiosystem {
          init_reward_info();
          reward = reward_inf.find(REWARD_ID);
       }
+      auto current_block = current_block_num();
+      last_drain_bp drain_bp_tbl(_self,_self.value);
       int64_t reward_pre_block = reward->cycle_reward / config::UPDATE_CYCLE;
       for( int i = 0; i < config::NUM_OF_TOP_BPS; i++ ) {
          auto bp = bps_tbl.find(sch->producers[i].bpname.value);
@@ -217,26 +236,52 @@ namespace eosiosystem {
             print(sch->producers[i].bpname," Insufficient mortgage, please replenish in time \n");
             continue;
          }
+         auto drain_block_num = PER_CYCLE_AMOUNT + bp->last_block_amount - sch->producers[i].amount;
+
          bps_tbl.modify(bp, _self, [&]( bp_info& b ) {
-             b.block_age +=  (sch->producers[i].amount > b.last_block_amount ? sch->producers[i].amount - b.last_block_amount : sch->producers[i].amount) * b.block_weight;
+            b.block_age +=  (sch->producers[i].amount > b.last_block_amount ? sch->producers[i].amount - b.last_block_amount : sch->producers[i].amount) * b.block_weight;
             total_block_out_age += (sch->producers[i].amount > b.last_block_amount ? sch->producers[i].amount - b.last_block_amount : sch->producers[i].amount) * b.block_weight;
                
-            if(sch->producers[i].amount - b.last_block_amount != PER_CYCLE_AMOUNT) {
+            if(drain_block_num != 0) {
                b.block_weight = BLOCK_OUT_WEIGHT;
-               b.mortgage -= asset(reward_pre_block * 2,CORE_SYMBOL);
-               total_punish += asset(reward_pre_block * 2,CORE_SYMBOL);
+               b.mortgage -= asset(reward_pre_block * 2 * drain_block_num,CORE_SYMBOL);
+               b.remain_punish += asset(reward_pre_block * 2 * drain_block_num,CORE_SYMBOL);
+               b.total_drain_block += drain_block_num;
             } else {
               b.block_weight += 1;
             }
             b.last_block_amount = sch->producers[i].amount;
          });
+
+         auto drainbp = drain_bp_tbl.find(sch->producers[i].bpname.value);
+         if (drain_block_num != 0) {
+            if (drainbp == drain_bp_tbl.end()) {
+               drain_bp_tbl.emplace(_self, [&]( last_drain_block& s ) {
+                  s.bpname = sch->producers[i].bpname;
+                  s.drain_num = drain_block_num;
+                  s.update_block_num = current_block;
+               });
+            }
+            else {
+               drain_bp_tbl.modify(drainbp, _self, [&]( last_drain_block& s ) {
+                  s.drain_num += drain_block_num;
+                  s.update_block_num = current_block;
+               });
+            }
+         }
+         else {
+            if (drainbp != drain_bp_tbl.end()) {
+               drain_bp_tbl.erase(drainbp);
+            }
+         }
       }
 
       reward_inf.modify(reward, _self, [&]( reward_info& s ) {
          s.reward_block_out += asset(reward_amount,CORE_SYMBOL);
          s.total_block_out_age += total_block_out_age;
-         s.bp_punish += total_punish;
       });
+
+
    }
 
    void system_contract::reward_bps(const uint64_t reward_amount) {
@@ -250,7 +295,12 @@ namespace eosiosystem {
       }
       const auto rewarding_bp_staked_threshold = staked_all_bps / 200;
       for( auto it = bps_tbl.cbegin(); it != bps_tbl.cend(); ++it ) {
-         if( !it->isactive || it->total_staked <= rewarding_bp_staked_threshold || it->commission_rate < 1 ||
+      //todo active
+         if (it->active_type == static_cast<int32_t>(active_type::Punish) || it->active_type == static_cast<int32_t>(active_type::Removed)) {
+            //所获奖励进入预算系统
+            continue;
+         }
+         if( it->total_staked <= rewarding_bp_staked_threshold || it->commission_rate < 1 ||
              it->commission_rate > 10000 ) {
             continue;
          }
@@ -272,7 +322,6 @@ namespace eosiosystem {
             s.reward_block_out = asset(0,CORE_SYMBOL);
             s.reward_develop = asset(0,CORE_SYMBOL);
             s.total_block_out_age = 0;
-            s.bp_punish = asset(0,CORE_SYMBOL);
             s.cycle_reward = PRE_BLOCK_REWARDS;
             s.gradient = PRE_GRADIENT;
          });
@@ -296,6 +345,7 @@ namespace eosiosystem {
          const auto& bp = bps_tbl.get(block_producers[i], "bpname is not registered");
          bps_tbl.modify(bp, _self, [&]( bp_info& b ) {
             b.block_weight = BLOCK_OUT_WEIGHT;
+            b.last_block_amount = 0;
          });
       }
    }
@@ -464,5 +514,212 @@ namespace eosiosystem {
       }
       return false;
    }
-    
+//惩罚BP的机制
+   ACTION system_contract::punishbp(const account_name initiator,const account_name bpname) {
+      require_auth(initiator);
+      //押金最低值的判断
+      INLINE_ACTION_SENDER(force::token, transfer)(
+         config::token_account,
+         { initiator, config::active_permission },
+         { initiator, config::system_account, PUNISH_BP_FEE, "punishbp deposit" });
+
+      last_drain_bp drain_bp_tbl(_self,_self.value);
+      auto drainbp = drain_bp_tbl.find(bpname.value); 
+      if (drainbp == drain_bp_tbl.end()) {
+         print("--------------\n");
+         return ;
+      }
+      //插表   发起议案       BP多签进行同意    一次性可以有
+      punish_bps punish_bp(_self,_self.value);
+      auto bp_punish = punish_bp.find(bpname.value);
+      eosio_assert(bp_punish == punish_bp.end(), "the bp is being punishing");
+      //不是出块BP是否可以被惩罚有待商榷
+      punish_bp.emplace(bpname,[&]( punish_bp_info& s) {
+         s.bpname = bpname;
+         s.initiator = initiator;
+         s.drain_num = drainbp->drain_num;
+         s.update_block_num = current_block_num();
+      });
+   }
+
+   ACTION system_contract::canclepunish(const account_name initiator,const account_name bpname) {
+      require_auth(initiator);
+      //取消押金最低值的判断
+      INLINE_ACTION_SENDER(force::token, transfer)(
+         config::token_account,
+         { initiator, config::active_permission },
+         { initiator, config::system_account, CANCLE_PUNISH_BP_FEE, "cancle punishbp deposit" });
+
+      punish_bps punish_bp(_self,_self.value);
+      auto bp_punish = punish_bp.find(bpname.value);
+      eosio_assert(bp_punish != punish_bp.end(), "the bp is not be punish");
+      eosio_assert(initiator == bp_punish->initiator,"only the initiator can cancle the punish proposal");
+      
+      INLINE_ACTION_SENDER(force::token, transfer)(
+         config::token_account,
+         { _self, config::active_permission },
+         { _self, initiator, PUNISH_BP_FEE, "cancle punishbp return deposit" });
+      
+      punish_bp.erase(bp_punish);
+
+      //对于同意的人也需要进行删除
+      approve_punish_bps app_punish_bp(_self,_self.value);
+      auto app_punish = app_punish_bp.find(bpname.value);
+      if (app_punish != app_punish_bp.end()) {
+         app_punish_bp.erase(app_punish);
+      }
+
+   }
+   ACTION system_contract::apppunish(const account_name bpname,const account_name punishbpname) {
+      require_auth(bpname);
+
+      //验证是否是出块BP
+      eosio_assert(is_super_bp(bpname),"only super bp can approve to punish bp");
+      INLINE_ACTION_SENDER(force::token, transfer)(
+         config::token_account,
+         { bpname, config::active_permission },
+         { bpname, config::system_account, APPROVE_PUNISH_BP_FEE, "cancle punishbp deposit" });
+
+      punish_bps punish_bp(_self,_self.value);
+      auto bp_punish = punish_bp.find(punishbpname.value);
+      eosio_assert(bp_punish != punish_bp.end(), "the bp is not be punish");
+
+      approve_punish_bps app_punish_bp(_self,_self.value);
+      auto app_punish = app_punish_bp.find(punishbpname.value);
+      if (app_punish == app_punish_bp.end()) {
+         app_punish_bp.emplace(bpname,[&]( approve_punish_bp& s) {
+            s.bpname = bpname;
+            s.approve_producer.push_back(bpname);
+         });
+      }
+      else {
+         auto iter = std::find(app_punish->approve_producer.begin(),app_punish->approve_producer.end(),bpname);
+         eosio_assert(iter != app_punish->approve_producer.end(),"the bp has approved");
+         app_punish_bp.modify(app_punish, _self, [&]( approve_punish_bp& s ) {
+               s.approve_producer.push_back(bpname);
+            });
+      }
+
+      app_punish = app_punish_bp.find(punishbpname.value);
+      if (app_punish->approve_producer.size() > config::NUM_OF_TOP_BPS * 2 / 3 ) {
+         //执行提议
+         exec_punish_bp(punishbpname);
+      }
+   }
+
+   void system_contract::exec_punish_bp(account_name punishbpname) {
+      auto effective_approve = effective_approve_num(punishbpname);
+      if (effective_approve < config::NUM_OF_TOP_BPS * 2 / 3) {
+         print("Need confirmation from other producers to punish the bp");
+         return ;
+      }
+      //开始惩罚
+      bps_table bps_tbl(_self, _self.value);
+      auto punishbp = bps_tbl.find(punishbpname.value);
+      if (punishbp == bps_tbl.end()) {
+         print("can not find punish bp");
+         return ;
+      }
+
+      auto total_reward = punishbp->remain_punish;
+      bps_tbl.modify(punishbp, _self, [&]( bp_info& b ) {
+         b.remain_punish = asset{0,CORE_SYMBOL};
+         b.active_type = static_cast<int32_t>(active_type::Punish);
+         b.active_change_block_num = current_block_num();
+      });
+      //开始奖励
+      auto reward_initiator = total_reward / 2;//提出人奖励一半
+      //提出人奖励
+      punish_bps punish_bp(_self,_self.value);
+      auto bp_punish = punish_bp.find(punishbpname.value);
+      eosio_assert(bp_punish != punish_bp.end(), "the bp is not be punish");
+      INLINE_ACTION_SENDER(force::token, transfer)(
+         config::token_account,
+         { config::system_account, config::active_permission },
+         { config::system_account, bp_punish->initiator, reward_initiator + PUNISH_BP_FEE, "cancle punishbp deposit" });
+      punish_bp.erase(bp_punish);
+      //通过的BP奖励
+      auto reward_approve = total_reward / 2 / effective_approve;
+      approve_punish_bps app_punish_bp(_self,_self.value);
+      auto app_punish = app_punish_bp.find(punishbpname.value);
+      eosio_assert(app_punish != app_punish_bp.end(), "no producer approve to punish the bp");
+      auto iSize = app_punish->approve_producer.size();
+      for(int i=0;i!=iSize;++i) {
+         if (is_super_bp(app_punish->approve_producer[i])) {
+            INLINE_ACTION_SENDER(force::token, transfer)(
+               config::token_account,
+               { config::system_account, config::active_permission },
+               { config::system_account, app_punish->approve_producer[i], reward_approve + APPROVE_PUNISH_BP_FEE, "cancle punishbp deposit" });
+         }
+      }
+      app_punish_bp.erase(app_punish);
+   }
+
+   ACTION system_contract::unapppunish(const account_name bpname,const account_name punishbpname) {
+      require_auth(bpname);
+     
+      approve_punish_bps app_punish_bp(_self,_self.value);
+      auto app_punish = app_punish_bp.find(punishbpname.value);
+      eosio_assert(app_punish != app_punish_bp.end(), "can find the approve punish record");
+      app_punish_bp.erase(app_punish);
+   }
+
+   ACTION system_contract::bailpunish(const account_name punishbpname) {
+      require_auth(punishbpname);
+
+      INLINE_ACTION_SENDER(force::token, transfer)(
+         config::token_account,
+         { punishbpname, config::active_permission },
+         { punishbpname, config::system_account, BAIL_PUNISH_FEE, "bail punish fee" });
+
+      bps_table bps_tbl(_self, _self.value);
+      auto punishbp = bps_tbl.find(punishbpname.value);
+      eosio_assert(punishbp != bps_tbl.end(),"can not find bp");
+
+      if (punishbp->active_type == static_cast<int32_t>(active_type::Punish) 
+         && punishbp->active_change_block_num + config::UPDATE_CYCLE*CYCLE_PREDAY*2 < current_block_num()) {
+         bps_tbl.modify(punishbp, _self, [&]( bp_info& b ) {
+            b.active_type = static_cast<int32_t>(active_type::Normal);
+         });
+      }
+      else {
+         eosio_assert(false,"the bp can not to be bailed");
+      }
+   }
+
+   bool system_contract::is_super_bp( account_name bpname) {
+      schedules_table schs_tbl(_self, _self.value);
+      auto producer_schs = schs_tbl.crbegin();
+      int32_t i = 0;
+      for ( i = 0;i!= config::NUM_OF_TOP_BPS; ++i) {
+         if (producer_schs->producers[i].bpname == bpname) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   int32_t system_contract::effective_approve_num(account_name punishbpname) {
+      punish_bps punish_bp(_self,_self.value);
+      auto bp_punish = punish_bp.find(punishbpname.value);
+      eosio_assert(bp_punish != punish_bp.end(), "the bp is not be punish");
+
+      approve_punish_bps app_punish_bp(_self,_self.value);
+      auto app_punish = app_punish_bp.find(punishbpname.value);
+      eosio_assert(app_punish != app_punish_bp.end(), "no producer approve to punish the bp");
+
+      schedules_table schs_tbl(_self, _self.value);
+      auto producer_schs = schs_tbl.crbegin();
+      int32_t i = 0,j = 0,result = 0;
+      for (i=0;i!=app_punish->approve_producer.size();++i) {
+         for (j=0;j!=config::NUM_OF_TOP_BPS;++j) {
+            if (producer_schs->producers[j].bpname == app_punish->approve_producer[i]) {
+               result++;
+               break;
+            }
+         }
+      }
+
+      return result;
+   } 
 }

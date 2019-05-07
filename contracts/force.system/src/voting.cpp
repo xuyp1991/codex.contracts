@@ -39,8 +39,8 @@ namespace eosiosystem {
 
       if( change > asset{0,CORE_SYMBOL} ) {
          INLINE_ACTION_SENDER(force::token, transfer)(
-            config::token_account, { {_self, config::active_permission} },
-            { _self, config::system_account, change, "unallocated inflation" }
+            config::token_account, { {voter, config::active_permission} },
+            { voter, config::system_account, change, "unallocated inflation" }
          );
       }
    }
@@ -102,7 +102,7 @@ namespace eosiosystem {
          });
       }
 
-      eosio_assert(bp.isactive || (!bp.isactive && change < asset{0,CORE_SYMBOL}), "bp is not active");
+      eosio_assert(bp.isactive() || (!bp.isactive() && change < asset{0,CORE_SYMBOL}), "bp is not active");
 
       if( change > asset{0,CORE_SYMBOL} ) {
          auto fts = freeze_tbl.find(voter.value);

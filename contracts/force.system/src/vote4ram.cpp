@@ -49,7 +49,7 @@ namespace eosiosystem {
             }
          });
       }
-      eosio_assert(bp.isactive || (!bp.isactive && change < asset{}), "bp is not active");
+      eosio_assert(bp.isactive() || (!bp.isactive() && change < asset{}), "bp is not active");
 
       if( change > asset{0,CORE_SYMBOL} ) {
          auto fts = freeze_tbl.find(voter.value);
@@ -78,6 +78,6 @@ namespace eosiosystem {
          });
       }
 
-      //set_need_check_ram_limit(voter.value);
+      set_need_check_ram_limit(voter.value);
    }
 }
