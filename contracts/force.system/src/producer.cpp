@@ -294,23 +294,34 @@ namespace eosiosystem {
          return;
       }
       const auto rewarding_bp_staked_threshold = staked_all_bps / 200;
+      auto budget_reward = asset{0,CORE_SYMBOL};
       for( auto it = bps_tbl.cbegin(); it != bps_tbl.cend(); ++it ) {
       //todo active
-         if (it->active_type == static_cast<int32_t>(active_type::Punish) || it->active_type == static_cast<int32_t>(active_type::Removed)) {
-            //所获奖励进入预算系统
-            continue;
-         }
          if( it->total_staked <= rewarding_bp_staked_threshold || it->commission_rate < 1 ||
              it->commission_rate > 10000 ) {
             continue;
          }
          auto vote_reward = static_cast<int64_t>( reward_amount  * double(it->total_staked) / double(staked_all_bps));
+         if (it->active_type == static_cast<int32_t>(active_type::Punish) || it->active_type == static_cast<int32_t>(active_type::Removed)) {
+            budget_reward += asset(vote_reward,CORE_SYMBOL);
+            continue;
+         }
+         
          const auto& bp = bps_tbl.get(it->name.value, "bpname is not registered");
          bps_tbl.modify(bp, _self, [&]( bp_info& b ) {
             b.rewards_pool += asset(vote_reward * (10000 - b.commission_rate) / 10000,CORE_SYMBOL);
             b.rewards_block += asset(vote_reward * b.commission_rate / 10000,CORE_SYMBOL);
          });
       }
+      reward_table reward_inf(_self,_self.value);
+      auto reward = reward_inf.find(REWARD_ID);
+      if(reward == reward_inf.end()) {
+         init_reward_info();
+         reward = reward_inf.find(REWARD_ID);
+      }
+      reward_inf.modify(reward, _self, [&]( reward_info& s ) {
+         s.reward_budget += budget_reward;
+      });
    }
 
    void system_contract::init_reward_info() {

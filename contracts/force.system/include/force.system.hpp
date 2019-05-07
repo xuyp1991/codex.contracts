@@ -217,12 +217,13 @@ namespace eosiosystem {
             uint64_t     id;
             asset reward_block_out = asset{0,CORE_SYMBOL};
             asset reward_develop = asset{0,CORE_SYMBOL};
+            asset reward_budget = asset{0,CORE_SYMBOL};     //预算
             int64_t total_block_out_age = 0;
             int64_t cycle_reward = 0;
             int32_t   gradient = 0;
 
             uint64_t primary_key() const { return id; }
-            EOSLIB_SERIALIZE(reward_info, ( id )(reward_block_out)(reward_develop)(total_block_out_age)(cycle_reward)(gradient))
+            EOSLIB_SERIALIZE(reward_info, ( id )(reward_block_out)(reward_develop)(reward_budget)(total_block_out_age)(cycle_reward)(gradient))
          };
 
          // /** from relay.token begin*/
