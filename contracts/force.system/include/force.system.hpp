@@ -403,6 +403,8 @@ namespace eosiosystem {
          ACTION unapppunish(const account_name bpname,const account_name punishbpname);
          // @abi action
          ACTION bailpunish(const account_name bpname);
+         // @abi action
+         ACTION testaction(const account_name tester);
 
          using updatebp_action = action_wrapper<"updatebp"_n, &system_contract::updatebp>;
          using freeze_action = action_wrapper<"freeze"_n, &system_contract::freeze>;
@@ -437,7 +439,7 @@ namespace eosiosystem {
          using canclepunish_action = action_wrapper<"canclepunish"_n, &system_contract::canclepunish>;
          using apppunish_action = action_wrapper<"apppunish"_n, &system_contract::apppunish>;
          using unapppunish_action = action_wrapper<"unapppunish"_n, &system_contract::unapppunish>;
-         
+         using testaction_action = action_wrapper<"testaction"_n, &system_contract::testaction>;         
    };
 
 }

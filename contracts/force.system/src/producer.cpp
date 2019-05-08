@@ -15,12 +15,14 @@ namespace eosiosystem {
       get_active_producers(block_producers, sizeof(account_name) * config::NUM_OF_TOP_BPS);
       auto sch = schs_tbl.find(uint64_t(schedule_version));
       if( sch == schs_tbl.end()) {
-         schs_tbl.emplace(bpname, [&]( schedule_info& s ) {
+         schs_tbl.emplace(_self, [&]( schedule_info& s ) {
             s.version = schedule_version;
-            s.block_height = current_block_num();          
+            s.block_height = current_block_num();
             for( int i = 0; i < config::NUM_OF_TOP_BPS; i++ ) {
-               s.producers[i].amount = block_producers[i] == bpname.value ? 1 : 0;
-               s.producers[i].bpname = name(block_producers[i]);
+               producer tempProducer;          
+               tempProducer.bpname = name(block_producers[i]);
+               tempProducer.amount = block_producers[i] == bpname.value ? 1 : 0;
+                s.producers.push_back(tempProducer);
             }
          });
          reset_block_weight(block_producers);
@@ -53,7 +55,6 @@ namespace eosiosystem {
                s.cycle_reward = static_cast<int64_t>(s.cycle_reward * s.gradient / 10000);
             });
          }
-
          INLINE_ACTION_SENDER(force::token, issue)( config::token_account, {{config::system_account,config::active_permission}},
                                              { config::reward_account, 
                                              asset(block_rewards,CORE_SYMBOL), 
@@ -62,6 +63,7 @@ namespace eosiosystem {
          uint64_t  vote_power = get_vote_power();
          uint64_t  coin_power = get_coin_power();
          uint64_t total_power = vote_power + coin_power;
+
          reward_develop(block_rewards * REWARD_DEVELOP / 10000);
          reward_block(schedule_version,block_rewards * REWARD_BP / 10000);
          if (total_power != 0) {
@@ -252,7 +254,6 @@ namespace eosiosystem {
             }
             b.last_block_amount = sch->producers[i].amount;
          });
-
          auto drainbp = drain_bp_tbl.find(sch->producers[i].bpname.value);
          if (drain_block_num != 0) {
             if (drainbp == drain_bp_tbl.end()) {
@@ -376,6 +377,7 @@ namespace eosiosystem {
       //    total_power += power;
       // }
       // return total_power ;
+      return 0;
    }
 
    int64_t system_contract::get_vote_power() {
@@ -733,4 +735,9 @@ namespace eosiosystem {
 
       return result;
    } 
+
+   ACTION system_contract::testaction(const account_name tester) {
+      require_auth(tester);
+      reward_block(0,150*10000);
+   }
 }

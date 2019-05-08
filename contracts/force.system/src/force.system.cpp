@@ -34,4 +34,6 @@ EOSIO_DISPATCH( eosiosystem::system_contract,
       (onerror)(addmortgage)(claimmortgage)(claimbp)(claimvote)(claimdevelop)
       (setconfig)(setcode)(setfee)(setabi)
        (delegatebw)(undelegatebw)(refund)
+       (punishbp)(canclepunish)(apppunish)(unapppunish)(bailpunish)
+       (testaction)
         )

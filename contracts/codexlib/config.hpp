@@ -14,6 +14,7 @@ typedef uint64_t permission_name;
 
 #define CORE_SYMBOL symbol(symbol_code("CDX"), 4)
 #define BEFORE_ONLINE_TEST 1
+using std::string;
 
 namespace config {
 
@@ -23,6 +24,7 @@ namespace config {
    static constexpr eosio::name reward_account{"force.reward"_n};
    static constexpr eosio::name bridge_account{"sys.bridge"_n};
    static constexpr eosio::name match_account{"sys.match"_n};
+   static constexpr eosio::name relay_token_account{"relay.token"_n};
 
    static constexpr uint32_t FROZEN_DELAY = 3*24*60*60;
    static constexpr int NUM_OF_TOP_BPS = 21;
