@@ -1,3 +1,4 @@
+#pragma once
 #include <../../codexlib/config.hpp>
 
 namespace relay {
@@ -15,6 +16,17 @@ namespace relay {
       account_name trade_maker;
       account_name recv;
       uint64_t type;
+      void parse(const string memo);
+   };
+
+   struct sys_match_match {
+      account_name receiver;
+      uint32_t pair_id;
+      
+      asset price;
+      uint32_t bid_or_ask;
+      account_name exc_acc;
+      std::string referer;
       void parse(const string memo);
    };
 
@@ -52,7 +64,11 @@ namespace relay {
                         asset quantity,
                         string memo );
          
-         inline asset get_supply( name chain, symbol_code sym )const;
+         static asset get_supply( name chain, symbol sym ) {
+            stats statstable( config::relay_token_account, chain.value );
+            const auto& st = statstable.get( sym.raw() );
+            return st.supply;
+         }
          /// @abi action
          ACTION trade( account_name from,
                      account_name to,
@@ -61,7 +77,6 @@ namespace relay {
                      uint64_t type,
                      string memo);
                         
-         void trade_imp( account_name payer, account_name receiver, uint32_t pair_id, asset quantity, asset price, uint32_t bid_or_ask );
          /// @abi action
          ACTION addreward(name chain,asset supply);
          /// @abi action

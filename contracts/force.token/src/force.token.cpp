@@ -1,4 +1,4 @@
-#include <force.token.hpp>
+
 #include <eosiolib/system.hpp>
 #include <../../sys.bridge/include/sys.bridge.hpp>
 #include <../../sys.match/include/sys.match.hpp>
@@ -306,9 +306,6 @@ namespace force {
       this->type = atoi(memoParts[3].c_str());
       eosio_assert(this->type == 1 || this->type == 2,"type is not adapted with bridge_addmortgage");
    }
-
-   asset token::get_supply( symbol_code sym ) const { return asset{0,CORE_SYMBOL};}
-   asset token::get_balance( account_name owner, symbol_code sym ) const {return asset{0,CORE_SYMBOL};}
 
 }
 //

@@ -1,6 +1,6 @@
 #include "force.system.hpp"
-// #include <relay.token/relay.token.hpp>
-// #include <sys.match/sys.match.hpp>
+#include <../../relay.token/include/relay.token.hpp>
+#include <../../sys.match/include/sys.match.hpp>
 #include <cmath>
 
 namespace eosiosystem {
@@ -363,21 +363,19 @@ namespace eosiosystem {
    }
 
    int64_t system_contract::get_coin_power() {
-      // int64_t total_power = 0; 
-      // rewards coin_reward(name("relay.token"_n),name("relay.token"_n).value);
-      // exchange::exchange t(SYS_MATCH);
-      // auto interval_block = exchange::INTERVAL_BLOCKS;
+      int64_t total_power = 0; 
+      rewards coin_reward(config::relay_token_account,config::relay_token_account.value);
+      auto interval_block = relay::INTERVAL_BLOCKS;
 
-      // for( auto it = coin_reward.cbegin(); it != coin_reward.cend(); ++it ) {
-      //    stats statstable("relay.token"_n, it->chain.value);
-      //    auto existing = statstable.find(it->supply.symbol.raw());
-      //    eosio_assert(existing != statstable.end(), "token with symbol already exists");
-      //    auto price = t.get_avg_price(current_block_num(),existing->chain,existing->supply.symbol).amount;
-      //    auto power = (existing->supply.amount / 10000) * OTHER_COIN_WEIGHT / 10000 * price;
-      //    total_power += power;
-      // }
-      // return total_power ;
-      return 0;
+      for( auto it = coin_reward.cbegin(); it != coin_reward.cend(); ++it ) {
+         stats statstable(config::relay_token_account, it->chain.value);
+         auto existing = statstable.find(it->supply.symbol.raw());
+         eosio_assert(existing != statstable.end(), "token with symbol already exists");
+         auto price = relay::exchange::get_avg_price(current_block_num(),existing->chain,existing->supply.symbol).amount;
+         auto power = (existing->supply.amount / 10000) * config::OTHER_COIN_WEIGHT / 10000 * price;
+         total_power += power;
+      }
+      return total_power ;
    }
 
    int64_t system_contract::get_vote_power() {

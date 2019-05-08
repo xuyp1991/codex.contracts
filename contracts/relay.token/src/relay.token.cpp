@@ -136,8 +136,6 @@ namespace relay {
       sub_balance(from, chain, quantity);
       add_balance(to, chain, quantity, from);
    }
-
-   asset token::get_supply( name chain, symbol_code sym )const { return asset{0,CORE_SYMBOL};}
    /// @abi action
    ACTION token::trade( account_name from,
                account_name to,
@@ -161,14 +159,6 @@ namespace relay {
             chain,
             quantity, 
             bri_add.type } );
-         // eosio::action(
-         //    vector<eosio::permission_level>{{SYS_BRIDGE,N(active)}},
-         //    SYS_BRIDGE,
-         //    N(addmortgage),
-         //    std::make_tuple(
-         //          bri_add.trade_name.value,bri_add.trade_maker,from,chain,quantity,bri_add.type
-         //    )
-         // ).send();
       }
       else if (type == static_cast<uint64_t>(func_type::bridge_exchange) && to == config::bridge_account) {
          transfer(from, to, chain, quantity, memo);
@@ -186,27 +176,47 @@ namespace relay {
             chain,
             quantity, 
             bri_exchange.type } );
-         // eosio::action(
-         //    vector<eosio::permission_level>{{SYS_BRIDGE,N(active)}},
-         //    SYS_BRIDGE,
-         //    N(exchange),
-         //    std::make_tuple(
-         //          bri_exchange.trade_name.value,bri_exchange.trade_maker,from,bri_exchange.recv,chain,quantity,bri_exchange.type
-         //    )
-         // ).send();
       }
       else if(type == static_cast<uint64_t>(func_type::match) && to == config::match_account) {
          transfer(from, to, chain, quantity, memo);
-         // sys_match_match smm;
-         // smm.parse(memo);
-         // trade_imp(smm.payer, smm.receiver, smm.pair_id, quantity, smm.price, smm.bid_or_ask);
+         sys_match_match smm;
+         smm.parse(memo);
+         auto trade_imp = [smm](account_name payer, account_name receiver, uint32_t pair_id, asset quantity, asset price2, uint32_t bid_or_ask, account_name exc_acc, string referer) {
+            asset           quant_after_fee;
+            asset           base;
+            asset           price;
+            
+            // relay::exchange e(config::match_account);
+            // auto base_sym = e.get_pair_base(pair_id);
+            // auto quote_sym = e.get_pair_quote(pair_id);
+            // //auto exc_acc = e.get_exchange_account(pair_id);
+            
+            // if (bid_or_ask) {
+            //    // to preserve precision
+            //    quant_after_fee = convert(base_sym, quantity);
+            //    //base = quant_after_fee * precision(price2.symbol.precision()) / price2.amount;
+            //    base = quant_after_fee;
+            //    print("after convert: quant_after_fee=", quant_after_fee, ", base=", base, "\n");
+            // } else {
+            //    base = convert(base_sym, quantity);
+            // }
+            // price = convert(quote_sym, price2);
+            
+            // print("\n before inline call sys.match --payer=",payer,", receiver=",receiver,", pair_id=",pair_id,", quantity=",quantity,", price=",price2,", bid_or_ask=",bid_or_ask, ", base=",quantity);
+            
+            // eosio::action(
+            //       permission_level{ exc_acc, N(active) },
+            //       N(sys.match), N(match),
+            //       std::make_tuple(pair_id, payer, receiver, base, price, bid_or_ask, exc_acc, referer)
+            // ).send();
+         };
+         trade_imp(from, smm.receiver, smm.pair_id, quantity, smm.price, smm.bid_or_ask, smm.exc_acc, smm.referer);
       }
       else {
          eosio_assert(false,"invalid trade type");
       }
    }
-                  
-   void token::trade_imp( account_name payer, account_name receiver, uint32_t pair_id, asset quantity, asset price, uint32_t bid_or_ask ) {}
+
    /// @abi action
    ACTION token::addreward(name chain,asset supply) {
       require_auth(_self);
@@ -235,7 +245,8 @@ namespace relay {
          stats statstable(_self, it->chain.value);
          auto existing = statstable.find(it->supply.symbol.raw());
          eosio_assert(existing != statstable.end(), "token with symbol already exists");
-         total_power += existing->supply.amount * config::OTHER_COIN_WEIGHT / 10000 ;
+         auto price = relay::exchange::get_avg_price(current_block_num(),existing->chain,existing->supply.symbol).amount;
+         total_power += existing->supply.amount * price ;
       }
 
       if (total_power == 0) return ;
@@ -243,7 +254,8 @@ namespace relay {
          stats statstable(_self, it->chain.value);
          auto existing = statstable.find(it->supply.symbol.raw());
          eosio_assert(existing != statstable.end(), "token with symbol already exists");
-         uint64_t devide_amount = quantity.amount * existing->supply.amount * config::OTHER_COIN_WEIGHT / 10000 / total_power;
+         auto price = relay::exchange::get_avg_price(current_block_num(),existing->chain,existing->supply.symbol).amount;
+         uint64_t devide_amount = quantity.amount * existing->supply.amount * price / total_power;
          statstable.modify(*existing, it->chain, [&]( auto& s ) {
             s.reward_pool += asset(devide_amount,s.reward_pool.symbol);
          });
@@ -421,15 +433,8 @@ namespace relay {
       uint64_t name = 0;
       int i = 0;
       for ( ; str[i] && i < 12; ++i) {
-         // NOTE: char_to_symbol() returns char type, and without this explicit
-         // expansion to uint64 type, the compilation fails at the point of usage
-         // of string_to_name(), where the usage requires constant (compile time) expression.
          name |= (char_to_symbol(str[i]) & 0x1f) << (64 - 5 * (i + 1));
       }
-
-      // The for-loop encoded up to 60 high bits into uint64 'name' variable,
-      // if (strlen(str) > 12) then encode str[12] into the low (remaining)
-      // 4 bits of 'name'
       if (i == 12)
          name |= char_to_symbol(str[12]) & 0x0F;
       return name;
@@ -455,6 +460,101 @@ namespace relay {
       this->type = atoi(memoParts[3].c_str());
       eosio_assert(this->type == 1 || this->type == 2,"type is not adapted with bridge_addmortgage");
    }
+
+   inline std::string trim(const std::string str) {
+      auto s = str;
+      s.erase(s.find_last_not_of(" ") + 1);
+      s.erase(0, s.find_first_not_of(" "));
+      
+      return s;
+   }
+
+   static constexpr uint64_t string_to_symbol( uint8_t precision, const char* str ) {
+      uint32_t len = 0;
+      while( str[len] ) ++len;
+
+      uint64_t result = 0;
+      for( uint32_t i = 0; i < len; ++i ) {
+         if( str[i] < 'A' || str[i] > 'Z' ) {
+            /// ERRORS?
+         } else {
+            result |= (uint64_t(str[i]) << (8*(1+i)));
+         }
+      }
+
+      result |= uint64_t(precision);
+      return result;
+   }
+
+   int64_t precision(uint64_t decimals)
+   {
+      int64_t p10 = 1;
+      int64_t p = (int64_t)decimals;
+      while( p > 0  ) {
+         p10 *= 10; --p;
+      }
+      return p10;
+   }
+
+   asset asset_from_string(const std::string& from) {
+      std::string s = trim(from);
+      const char * str1 = s.c_str();
+
+      // Find space in order to split amount and symbol
+      const char * pos = strchr(str1, ' ');
+      eosio_assert((pos != NULL), "Asset's amount and symbol should be separated with space");
+      auto space_pos = pos - str1;
+      auto symbol_str = trim(s.substr(space_pos + 1));
+      auto amount_str = s.substr(0, space_pos);
+      eosio_assert((amount_str[0] != '-'), "now do not support negetive asset");
+
+      // Ensure that if decimal point is used (.), decimal fraction is specified
+      const char * str2 = amount_str.c_str();
+      const char *dot_pos = strchr(str2, '.');
+      if (dot_pos != NULL) {
+         eosio_assert((dot_pos - str2 != amount_str.size() - 1), "Missing decimal fraction after decimal point");
+      }
+      print("------asset_from_string: symbol_str=",symbol_str, ", amount_str=",amount_str, "\n");
+      // Parse symbol
+      uint32_t precision_digits;
+      if (dot_pos != NULL) {
+         precision_digits = amount_str.size() - (dot_pos - str2 + 1);
+      } else {
+         precision_digits = 0;
+      }
+
+      symbol sym(string_to_symbol((uint8_t)precision_digits, symbol_str.c_str()));
+      // Parse amount
+      int64_t int_part, fract_part;
+      if (dot_pos != NULL) {
+         int_part = ::atoll(amount_str.substr(0, dot_pos - str2).c_str());
+         fract_part = ::atoll(amount_str.substr(dot_pos - str2 + 1).c_str());
+      } else {
+         int_part = ::atoll(amount_str.c_str());
+         fract_part = 0;
+      }
+      int64_t amount = int_part * precision(precision_digits);
+      amount += fract_part;
+
+      return asset(amount, sym);
+   }
+
+   void sys_match_match::parse(const string memo) {
+      using namespace boost;
+
+      std::vector<std::string> memoParts;
+      splitMemo( memoParts, memo,  ';' );
+      eosio_assert(memoParts.size() == 6,"memo is not adapted with sys_match_match");
+      receiver    = name(string_to_name(memoParts[0].c_str()));
+      pair_id     = (uint32_t)atoi(memoParts[1].c_str());
+      price       = asset_from_string(memoParts[2]);
+      bid_or_ask  = (uint32_t)atoi(memoParts[3].c_str());
+      exc_acc     = name(string_to_name(memoParts[4].c_str()));
+      referer     = memoParts[5];
+      eosio_assert(bid_or_ask == 0 || bid_or_ask == 1,"type is not adapted with sys_match_match");
+   }
+
+   
 
    int64_t token::get_current_age(name chain,asset balance,int64_t first,int64_t last) {return 1;}
 }

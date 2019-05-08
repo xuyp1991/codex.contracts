@@ -16,6 +16,13 @@ typedef uint64_t permission_name;
 #define BEFORE_ONLINE_TEST 1
 using std::string;
 
+enum  class func_type:uint64_t {
+   match=1,
+   bridge_addmortgage,
+   bridge_exchange,
+   trade_type_count
+};
+
 namespace config {
 
    static constexpr eosio::name token_account{"force.token"_n};

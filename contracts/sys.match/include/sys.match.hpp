@@ -1,13 +1,16 @@
 
+#pragma once
 #include <eosiolib/time.hpp>
 #include <../../codexlib/config.hpp>
+#include<../../force.token/include/force.token.hpp>
+#include<../../relay.token/include/relay.token.hpp>
 
 #define NULL_SYMBOL symbol(symbol_code(""), 0)
 #define NULL_NAME  name(0)
 namespace relay{
    typedef name account_name;
 
-   const uint32_t INTERVAL_BLOCKS = 172800;///*172800*/ 24 * 3600 * 1000 / config::block_interval_ms;
+   static const uint32_t INTERVAL_BLOCKS = 172800;///*172800*/ 24 * 3600 * 1000 / config::block_interval_ms;
    const int64_t MAX_FEE_RATE = 10000;
 
    class [[eosio::contract("sys.match")]] exchange : public contract {
@@ -20,7 +23,7 @@ namespace relay{
          ACTION cancel(account_name maker, uint32_t type, uint64_t order_or_pair_id);
          ACTION done(account_name taker_exc_acc, account_name maker_exc_acc, name quote_chain, asset price, name base_chain, asset quantity, uint32_t bid_or_ask, time_point_sec timestamp);
          ACTION mark(name base_chain, symbol base_sym, name quote_chain, symbol quote_sym);
-         ACTION claim(name base_chain, symbol base_sym, name quote_chain, symbol quote_sym, account_name exc_acc, account_name fee_acc);   
+         ACTION claimrelay(name base_chain, symbol base_sym, name quote_chain, symbol quote_sym, account_name exc_acc, account_name fee_acc);   
          ACTION freeze(uint32_t id);    
          ACTION unfreeze(uint32_t id);
          ACTION setfee(account_name exc_acc, uint32_t pair_id, uint32_t type, uint32_t rate, name chain, asset fee);
@@ -31,7 +34,7 @@ namespace relay{
          using cancel_action = action_wrapper<"cancel"_n, &exchange::cancel>;
          using done_action = action_wrapper<"done"_n, &exchange::done>;
          using mark_action = action_wrapper<"mark"_n, &exchange::mark>;
-         using claim_action = action_wrapper<"claim"_n, &exchange::claim>;
+         using claimrelay_action = action_wrapper<"claimrelay"_n, &exchange::claimrelay>;
          using freeze_action = action_wrapper<"freeze"_n, &exchange::freeze>;
          using unfreeze_action = action_wrapper<"unfreeze"_n, &exchange::unfreeze>;
          using setfee_action = action_wrapper<"setfee"_n, &exchange::setfee>;
@@ -142,7 +145,7 @@ namespace relay{
          inline symbol get_pair_quote( uint32_t pair_id ) const;
          inline void check_pair( name base_chain, symbol base_sym, name quote_chain, symbol quote_sym );
          inline uint32_t get_pair_id( name base_chain, symbol base_sym, name quote_chain, symbol quote_sym ) const;
-         inline asset get_avg_price( uint32_t block_height, name base_chain, symbol base_sym, name quote_chain = name(0), symbol quote_sym = CORE_SYMBOL ) const;
+         
          inline void upd_mark( name base_chain, symbol base_sym, name quote_chain, symbol quote_sym, asset sum, asset vol );
 
          void insert_order(
@@ -155,8 +158,93 @@ namespace relay{
                         account_name payer, 
                         account_name receiver);
 
-         static asset to_asset( account_name code, name chain, symbol sym, const asset& a );
-         static asset convert( symbol expected_symbol, const asset& a );
-         static int64_t precision(uint64_t decimals);
+
+
+      public:
+         static asset get_avg_price( uint32_t block_height, name base_chain, symbol base_sym, name quote_chain = name(0), symbol quote_sym = CORE_SYMBOL ) {
+            deals   deals_table(config::match_account, config::match_account.value);
+            asset   avg_price = asset(0, quote_sym);
+
+            uint32_t pair_id = 0xFFFFFFFF;
+            
+            trading_pairs   pairs_table(config::match_account, config::match_account.value);
+
+            auto lower_key = std::numeric_limits<uint64_t>::lowest();
+            auto lower = pairs_table.lower_bound( lower_key );
+            auto upper_key = std::numeric_limits<uint64_t>::max();
+            auto upper = pairs_table.upper_bound( upper_key );
+            auto itr = lower;
+            
+            for ( itr = lower; itr != upper; ++itr ) {
+               if (itr->base_chain == base_chain && itr->base_sym == base_sym && 
+                     itr->quote_chain == quote_chain && itr->quote_sym == quote_sym) {
+                  pair_id = itr->id;
+                  break;
+               }
+            }
+            if (itr == upper) {
+               return avg_price;
+            }
+            
+            lower_key = ((uint64_t)pair_id << 32) | 0;
+            auto idx_deals = deals_table.template get_index<"idxkey"_n>();
+            auto itr1 = idx_deals.lower_bound(lower_key);
+            if (!(itr1 != idx_deals.end() && itr1->pair_id == pair_id)) {
+               return avg_price;
+            }
+            
+            lower_key = ((uint64_t)pair_id << 32) | block_height;
+            itr1 = idx_deals.lower_bound(lower_key);
+            if (itr1 == idx_deals.cend()) itr1--;
+
+            if (itr1->vol.amount > 0 && block_height >= itr1->reset_block_height) 
+               avg_price = itr1->sum * precision(itr1->vol.symbol.precision()) / itr1->vol.amount;
+
+            return avg_price;
+         }
+
+         static asset to_asset( account_name code, name chain, symbol sym, const asset& a ) {
+            asset b;
+            symbol expected_symbol;
+            
+            // if (chain.value == 0) {
+            //    eosio::token t(config::token_account_name);
+            
+            //    expected_symbol = t.get_supply(sym.name()).symbol ;
+            // } else {
+            //    relay::token t(config::relay_token_account);
+            
+            //    expected_symbol = t.get_supply(chain, sym.name()).symbol ;
+            // }
+
+            b = convert(expected_symbol, a);
+            return b;
+         }
+
+         static asset convert( symbol expected_symbol, const asset& a ) {
+            int64_t factor;
+            asset b;
+            
+            if (expected_symbol.precision() >= a.symbol.precision()) {
+               factor = precision( expected_symbol.precision() ) / precision( a.symbol.precision() );
+               b = asset( a.amount * factor, expected_symbol );
+            }
+            else {
+               factor =  precision( a.symbol.precision() ) / precision( expected_symbol.precision() );
+               b = asset( a.amount / factor, expected_symbol );
+               
+            }
+            return b;
+         }
+         static int64_t precision(uint64_t decimals) 
+         {
+            int64_t p10 = 1;
+            int64_t p = (int64_t)decimals;
+            while( p > 0  ) {
+               p10 *= 10; --p;
+            }
+            return p10;
+         }
+         
    };
 }

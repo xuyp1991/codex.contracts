@@ -1,11 +1,5 @@
+#pragma once
 #include <../../codexlib/config.hpp>
-
-enum  class func_type:uint64_t {
-   match=1,
-   bridge_addmortgage,
-   bridge_exchange,
-   trade_type_count
-};
 
 namespace force {
    using std::string;
@@ -45,9 +39,17 @@ namespace force {
          ACTION fee( account_name payer, asset quantity );
       
       
-         inline asset get_supply( symbol_code sym )const;
+         static asset get_supply( symbol sym ) {
+            stats statstable( config::token_account, sym.raw() );
+            const auto& st = statstable.get( sym.raw() );
+            return st.supply;
+         }
          
-         inline asset get_balance( account_name owner, symbol_code sym )const;
+         static asset get_balance( account_name owner, symbol sym ) {
+            accounts accountstable( config::token_account, owner.value );
+            const auto& ac = accountstable.get( sym.raw() );
+            return ac.balance;
+         }
 
          ACTION trade( account_name   from,
                      account_name   to,

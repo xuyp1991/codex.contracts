@@ -198,7 +198,7 @@ namespace relay{
          d.block_height_end = start_block + INTERVAL_BLOCKS - 1;
       });
    }
-   ACTION exchange::claim(name base_chain, symbol base_sym, name quote_chain, symbol quote_sym, account_name exc_acc, account_name fee_acc){
+   ACTION exchange::claimrelay(name base_chain, symbol base_sym, name quote_chain, symbol quote_sym, account_name exc_acc, account_name fee_acc) {
       require_auth(exc_acc);
       auto pair_id = get_pair_id(base_chain, base_sym, quote_chain, quote_sym);
       fees fees_tbl(_self,_self.value);
@@ -735,47 +735,9 @@ namespace relay{
 
       return 0;
    }
-   asset exchange::get_avg_price( uint32_t block_height, name base_chain, symbol base_sym, name quote_chain, symbol quote_sym ) const {
-      deals   deals_table(_self, _self.value);
-      asset   avg_price = asset(0, quote_sym);
+   // asset exchange::get_avg_price( uint32_t block_height, name base_chain, symbol base_sym, name quote_chain, symbol quote_sym ) {
 
-      uint32_t pair_id = 0xFFFFFFFF;
-      
-      trading_pairs   pairs_table(_self, _self.value);
-
-      auto lower_key = std::numeric_limits<uint64_t>::lowest();
-      auto lower = pairs_table.lower_bound( lower_key );
-      auto upper_key = std::numeric_limits<uint64_t>::max();
-      auto upper = pairs_table.upper_bound( upper_key );
-      auto itr = lower;
-      
-      for ( itr = lower; itr != upper; ++itr ) {
-         if (itr->base_chain == base_chain && itr->base_sym == base_sym && 
-               itr->quote_chain == quote_chain && itr->quote_sym == quote_sym) {
-            pair_id = itr->id;
-            break;
-         }
-      }
-      if (itr == upper) {
-         return avg_price;
-      }
-      
-      lower_key = ((uint64_t)pair_id << 32) | 0;
-      auto idx_deals = deals_table.template get_index<"idxkey"_n>();
-      auto itr1 = idx_deals.lower_bound(lower_key);
-      if (!(itr1 != idx_deals.end() && itr1->pair_id == pair_id)) {
-         return avg_price;
-      }
-      
-      lower_key = ((uint64_t)pair_id << 32) | block_height;
-      itr1 = idx_deals.lower_bound(lower_key);
-      if (itr1 == idx_deals.cend()) itr1--;
-
-      if (itr1->vol.amount > 0 && block_height >= itr1->reset_block_height) 
-         avg_price = itr1->sum * precision(itr1->vol.symbol.precision()) / itr1->vol.amount;
-
-      return avg_price;
-   }
+   // }
    void exchange::upd_mark( name base_chain, symbol base_sym, name quote_chain, symbol quote_sym, asset sum, asset vol ) {
       deals   deals_table(_self, _self.value);
       auto pair_id = get_pair_id(base_chain, base_sym, quote_chain, quote_sym);
@@ -834,49 +796,7 @@ namespace relay{
          o.timestamp     = time_point_sec(uint32_t(current_time() / 1000000ll));
       });
    }
-   asset exchange::convert( symbol expected_symbol, const asset& a ) {
-      int64_t factor;
-      asset b;
-      
-      if (expected_symbol.precision() >= a.symbol.precision()) {
-         factor = precision( expected_symbol.precision() ) / precision( a.symbol.precision() );
-         b = asset( a.amount * factor, expected_symbol );
-      }
-      else {
-         factor =  precision( a.symbol.precision() ) / precision( expected_symbol.precision() );
-         b = asset( a.amount / factor, expected_symbol );
-         
-      }
-      return b;
-   }
 
-   asset exchange::to_asset( account_name code, name chain, symbol sym, const asset& a ) {
-      asset b;
-      symbol expected_symbol;
-      
-      // if (chain.value == 0) {
-      //    eosio::token t(config::token_account_name);
-      
-      //    expected_symbol = t.get_supply(sym.name()).symbol ;
-      // } else {
-      //    relay::token t(config::relay_token_account);
-      
-      //    expected_symbol = t.get_supply(chain, sym.name()).symbol ;
-      // }
-
-      b = convert(expected_symbol, a);
-      return b;
-   }
-
-   int64_t exchange::precision(uint64_t decimals)
-      {
-         int64_t p10 = 1;
-         int64_t p = (int64_t)decimals;
-         while( p > 0  ) {
-            p10 *= 10; --p;
-         }
-         return p10;
-      }
 }
 
-EOSIO_DISPATCH( relay::exchange, (regex)(create)(match)(cancel)(done)(mark)(claim)(freeze)(unfreeze)(setfee) )
+EOSIO_DISPATCH( relay::exchange, (regex)(create)(match)(cancel)(done)(mark)(claimrelay)(freeze)(unfreeze)(setfee) )
