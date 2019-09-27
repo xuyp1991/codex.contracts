@@ -1,9 +1,21 @@
-add_contract(force.msig force.msig ${CMAKE_CURRENT_SOURCE_DIR}/src/force.msig.cpp)
 
-target_include_directories(force.msig
-   PUBLIC
-   ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-set_target_properties(force.msig
-   PROPERTIES
-   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+project(force.msig)
+
+include(ExternalProject)
+# if no cdt root is given use default path
+if(CODEX_CDT_ROOT STREQUAL "" OR NOT CODEX_CDT_ROOT)
+   find_package(codex.cdt)
+endif()
+
+ExternalProject_Add(
+   force.msig_project
+   SOURCE_DIR ${PROJECT_SOURCE_DIR}/src
+   BINARY_DIR ${CMAKE_BINARY_DIR}/contracts/force.msig
+   CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${CODEX_CDT_ROOT}/lib/cmake/codex.cdt/EosioWasmToolchain.cmake
+   UPDATE_COMMAND ""
+   PATCH_COMMAND ""
+   TEST_COMMAND ""
+   INSTALL_COMMAND ""
+   BUILD_ALWAYS 1
+)

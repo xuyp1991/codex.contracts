@@ -4,32 +4,6 @@
 namespace relay {
    using std::string;
 
-   struct sys_bridge_addmort {
-      name trade_name;
-      account_name trade_maker;
-      uint64_t type;
-      void parse(const string memo);
-   };
-
-   struct sys_bridge_exchange {
-      name trade_name;
-      account_name trade_maker;
-      account_name recv;
-      uint64_t type;
-      void parse(const string memo);
-   };
-
-   struct sys_match_match {
-      account_name receiver;
-      uint32_t pair_id;
-      
-      asset price;
-      uint32_t bid_or_ask;
-      account_name exc_acc;
-      std::string referer;
-      void parse(const string memo);
-   };
-
    class [[eosio::contract("relay.token")]] token : public contract {
       public:
          using contract::contract;
@@ -63,19 +37,6 @@ namespace relay {
                         name chain,
                         asset quantity,
                         string memo );
-         
-         static asset get_supply( name chain, symbol sym ) {
-            stats statstable( config::relay_token_account, chain.value );
-            const auto& st = statstable.get( sym.raw() );
-            return st.supply;
-         }
-         /// @abi action
-         ACTION trade( account_name from,
-                     account_name to,
-                     name chain,
-                     asset quantity,
-                     uint64_t type,
-                     string memo);
                         
          /// @abi action
          ACTION addreward(name chain,asset supply);
@@ -88,10 +49,15 @@ namespace relay {
          using issue_action = action_wrapper<"issue"_n, &token::issue>;
          using destroy_action = action_wrapper<"destroy"_n, &token::destroy>;
          using transfer_action = action_wrapper<"transfer"_n, &token::transfer>;
-         using trade_action = action_wrapper<"trade"_n, &token::trade>;
          using addreward_action = action_wrapper<"addreward"_n, &token::addreward>;
          using rewardmine_action = action_wrapper<"rewardmine"_n, &token::rewardmine>;
          using claim_action = action_wrapper<"claim"_n, &token::claim>;
+      public:
+         static asset get_supply( name chain, symbol sym ) {
+            stats statstable( config::relay_token_account, chain.value );
+            const auto& st = statstable.get( sym.raw() );
+            return st.supply;
+         }
       private:
          inline static uint128_t get_account_idx(const name& chain, const asset& a) {
             return (uint128_t(uint64_t(chain.value)) << 64) + uint128_t(a.symbol.raw());

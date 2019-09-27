@@ -7,21 +7,7 @@ namespace force {
    static constexpr uint32_t STABLE_CAST_NUM = 1209600;
    static constexpr double WEAKEN_CAST_NUM = 2.5;
 
-   struct sys_bridge_addmort {
-      name trade_name;
-      account_name trade_maker;
-      uint64_t type;
-      void parse(const string memo);
-   };
-
-   struct sys_bridge_exchange {
-      name trade_name;
-      account_name trade_maker;
-      account_name recv;
-      uint64_t type;
-      void parse(const string memo);
-   };
-   //CONTRACT token : public contract {
+   
    class [[eosio::contract("force.token")]] token : public contract {
       public:
          using contract::contract;
@@ -51,11 +37,6 @@ namespace force {
             return ac.balance;
          }
 
-         ACTION trade( account_name   from,
-                     account_name   to,
-                     asset          quantity,
-                     uint64_t      type,
-                     string           memo);
          ACTION castcoin(account_name from,account_name to,asset quantity);
          ACTION takecoin(account_name to);
 
@@ -63,7 +44,7 @@ namespace force {
          using issue_action = action_wrapper<"issue"_n, &token::issue>;
          using transfer_action = action_wrapper<"transfer"_n, &token::transfer>;
          using fee_action = action_wrapper<"fee"_n, &token::fee>;
-         using trade_action = action_wrapper<"trade"_n, &token::trade>;
+
          using castcoin_action = action_wrapper<"castcoin"_n, &token::castcoin>;
          using takecoin_action = action_wrapper<"takecoin"_n, &token::takecoin>;
       private:
