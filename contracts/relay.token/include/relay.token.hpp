@@ -4,6 +4,61 @@
 namespace relay {
    using std::string;
 
+   inline static uint128_t get_account_idx(const name& chain, const asset& a) {
+            return (uint128_t(uint64_t(chain.value)) << 64) + uint128_t(a.symbol.raw());
+         }
+
+   struct [[eosio::table, eosio::contract("relay.token")]] account {
+      uint64_t id;
+      asset balance;
+      name  chain;
+
+      int128_t      mineage               = 0;         // asset.amount * block height
+      uint32_t     mineage_update_height = 0;
+      int64_t      pending_mineage       = 0;
+
+      uint64_t  primary_key() const { return id; }
+      uint128_t get_index_i128() const { return get_account_idx(chain, balance); }
+   };
+   typedef eosio::multi_index<"accounts"_n, account,
+      indexed_by< "bychain"_n,
+                  const_mem_fun<account, uint128_t, &account::get_index_i128 >>> accounts;
+
+   struct [[eosio::table, eosio::contract("relay.token")]] account_next_id {
+      uint64_t     id;
+      account_name account;
+
+      uint64_t  primary_key() const { return account.value; }
+   };
+   typedef eosio::multi_index<"accountid"_n, account_next_id> account_next_ids ;
+
+   struct [[eosio::table, eosio::contract("relay.token")]] currency_stats {
+      asset        supply;
+      asset        max_supply;
+      account_name issuer;
+      name         chain;
+
+      asset        reward_pool;
+      int128_t      total_mineage               = 0;         // asset.amount * block height
+      uint32_t     total_mineage_update_height = 0;
+      int64_t      total_pending_mineage       = 0;
+
+      uint64_t primary_key() const { return supply.symbol.raw(); }
+   };
+   typedef multi_index<"stat"_n, currency_stats> stats;
+   
+   struct [[eosio::table, eosio::contract("relay.token")]] reward_currency {
+      uint64_t     id;
+      name         chain;
+      asset        supply;
+
+      uint64_t primary_key() const { return id; }
+      uint128_t get_index_i128() const { return get_account_idx(chain, supply); }
+   };
+   typedef multi_index<"reward"_n, reward_currency,
+               indexed_by< "bychain"_n,
+                           const_mem_fun<reward_currency, uint128_t, &reward_currency::get_index_i128 >>> rewards;
+
    class [[eosio::contract("relay.token")]] token : public contract {
       public:
          using contract::contract;
@@ -59,61 +114,6 @@ namespace relay {
             return st.supply;
          }
       private:
-         inline static uint128_t get_account_idx(const name& chain, const asset& a) {
-            return (uint128_t(uint64_t(chain.value)) << 64) + uint128_t(a.symbol.raw());
-         }
-
-         TABLE account {
-            uint64_t id;
-            asset balance;
-            name  chain;
-
-            int128_t      mineage               = 0;         // asset.amount * block height
-            uint32_t     mineage_update_height = 0;
-            int64_t      pending_mineage       = 0;
-
-            uint64_t  primary_key() const { return id; }
-            uint128_t get_index_i128() const { return get_account_idx(chain, balance); }
-         };
-
-         TABLE account_next_id {
-            uint64_t     id;
-            account_name account;
-
-            uint64_t  primary_key() const { return account.value; }
-         };
-
-         TABLE currency_stats {
-            asset        supply;
-            asset        max_supply;
-            account_name issuer;
-            name         chain;
-
-            asset        reward_pool;
-            int128_t      total_mineage               = 0;         // asset.amount * block height
-            uint32_t     total_mineage_update_height = 0;
-            int64_t      total_pending_mineage       = 0;
-
-            uint64_t primary_key() const { return supply.symbol.raw(); }
-         };
-         TABLE reward_currency {
-            uint64_t     id;
-            name         chain;
-            asset        supply;
-
-            uint64_t primary_key() const { return id; }
-            uint128_t get_index_i128() const { return get_account_idx(chain, supply); }
-         };
-
-         typedef eosio::multi_index<"accounts"_n, account,
-               indexed_by< "bychain"_n,
-                           const_mem_fun<account, uint128_t, &account::get_index_i128 >>> accounts;
-         typedef multi_index<"stat"_n, currency_stats> stats;
-         typedef eosio::multi_index<"accountid"_n, account_next_id> account_next_ids ;
-         typedef multi_index<"reward"_n, reward_currency,
-               indexed_by< "bychain"_n,
-                           const_mem_fun<reward_currency, uint128_t, &reward_currency::get_index_i128 >>> rewards;
-
          void sub_balance( account_name owner, name chain, asset value );
          void add_balance( account_name owner, name chain, asset value, account_name ram_payer );
 
