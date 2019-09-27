@@ -5,6 +5,23 @@
 namespace eosio {
    using std::vector;
    using std::string;
+   struct [[eosio::table, eosio::contract("force.msig")]] proposal {
+      name                       proposal_name;
+      vector<char>               packed_transaction;
+
+      auto primary_key()const { return proposal_name.value; }
+   };
+   typedef eosio::multi_index<"proposal"_n,proposal> proposals;
+
+   struct [[eosio::table, eosio::contract("force.msig")]] approvals_info {
+      name                       proposal_name;
+      vector<permission_level>   requested_approvals;
+      vector<permission_level>   provided_approvals;
+
+      auto primary_key()const { return proposal_name.value; }
+   };
+   typedef eosio::multi_index<"approvals"_n,approvals_info> approvals;
+
    class [[eosio::contract("force.msig")]] multisig : public contract {
       public:
          using contract::contract;
@@ -21,23 +38,6 @@ namespace eosio {
          using cancel_action = action_wrapper<"cancel"_n, &multisig::cancel>;
          using exec_action = action_wrapper<"exec"_n, &multisig::exec>;
 
-      private:
-         TABLE proposal {
-            name                       proposal_name;
-            vector<char>               packed_transaction;
-
-            auto primary_key()const { return proposal_name.value; }
-         };
-         typedef eosio::multi_index<"proposal"_n,proposal> proposals;
-
-         TABLE approvals_info {
-            name                       proposal_name;
-            vector<permission_level>   requested_approvals;
-            vector<permission_level>   provided_approvals;
-
-            auto primary_key()const { return proposal_name.value; }
-         };
-         typedef eosio::multi_index<"approvals"_n,approvals_info> approvals;
    };
 
 } /// namespace eosio

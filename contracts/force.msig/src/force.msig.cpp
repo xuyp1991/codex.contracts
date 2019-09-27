@@ -121,4 +121,4 @@ namespace eosio {
    }
 }
 
-EOSIO_DISPATCH( eosio::multisig,(propose)(approve)(unapprove)(cancel)(exec) )
+//EOSIO_DISPATCH( eosio::multisig,(propose)(approve)(unapprove)(cancel)(exec) )
