@@ -5,6 +5,50 @@
 
 namespace relay {
 
+   ACTION token::on( name chain, const checksum256 block_id, const force::relay::action& act ) {
+      //require_auth(config::relay_account_name); // TODO use config
+
+      // TODO this ACTION should no err
+
+      const auto data = unpack<token::action>(act.data);
+      print("map ", name{ data.from }, " ", data.quantity, " ", data.memo, "\n");
+
+      auto sym = data.quantity.symbol;
+      stats statstable(_self, chain.value);
+      auto st = statstable.find(sym.raw());
+      if( st == statstable.end() ){
+         // TODO param err processing
+         print("no token err");
+         return;
+      }
+
+      if(    ( !sym.is_valid() )
+         || ( data.memo.size() > 256 )
+         || ( !data.quantity.is_valid() )
+         || ( data.quantity.amount <= 0 )
+         || ( data.quantity.symbol != st->supply.symbol )
+         || ( data.quantity.amount > st->max_supply.amount - st->supply.amount )
+         ) {
+         // TODO param err processing
+         print("token err");
+         return;
+      }
+
+      if( data.memo.empty() || data.memo.size() >= 13 ){
+         // TODO param err processing
+         print("data.memo err");
+         return;
+      }
+      const auto to = global_func::string_to_name(data.memo.c_str());
+      if( !is_account(to) ) {
+         // TODO param err processing
+         print("to is no account");
+         return;
+      }
+      relay::token::issue_action temp{"relay.token"_n, {chain, "active"_n}};
+      temp.send(chain, to, data.quantity, "from chain");
+   }
+
    ACTION token::create( account_name issuer,
                name chain,
                asset maximum_supply ) {

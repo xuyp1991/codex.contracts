@@ -1,5 +1,6 @@
 #pragma once
 #include <../../codexlib/config.hpp>
+#include <../../force.relay/include/force.relay.hpp>
 
 namespace relay {
    using std::string;
@@ -73,7 +74,7 @@ namespace relay {
          };
 
          /// @abi action
-         //ACTION on( name chain, const checksum256 block_id, const force::relay::action& act );
+         ACTION on( name chain, const checksum256 block_id, const force::relay::action& act );
 
          /// @abi action
          ACTION create( account_name issuer,

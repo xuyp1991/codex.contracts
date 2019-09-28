@@ -111,7 +111,7 @@ summary: 'take the reward token to the coin cast'
 icon: @ICON_BASE_URL@/@TOKEN_ICON_URI@
 ---
 
-<h1 class="destroy">destroy</h1>
+<h1 class="contract">destroy</h1>
 
 ---
 spec_version: "0.2.0"
@@ -119,3 +119,13 @@ title: destroy some token on this chain
 summary: 'destroy some token on this chain,the coin will be transfer to your account on another chain'
 icon: @ICON_BASE_URL@/@TOKEN_ICON_URI@
 ---
+
+<h1 class="contract">on</h1>
+
+---
+spec_version: "0.2.0"
+title: other chain push some coin to this coin ,on action send some coin to user
+summary: 'Called by contract force.relay'
+icon: @ICON_BASE_URL@/@TOKEN_ICON_URI@
+---
+
