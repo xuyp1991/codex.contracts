@@ -341,7 +341,7 @@ namespace relay{
       require_auth(_self);
       transcon trans(_self,_self.value);
       auto idx = trans.get_index<"bychain"_n>();
-      auto con = idx.find(get_contract_idx(chain, quantity));
+      auto con = idx.find(global_func::make_int128_index(chain, quantity));
 
       if( con == idx.end() ) {
          trans.emplace(_self, [&]( auto& a ) {
@@ -407,7 +407,7 @@ namespace relay{
    void bridge::send_transfer_action(name chain,name recv,asset quantity,std::string memo) {
       transcon transfer_contract(_self, _self.value);
       auto idx = transfer_contract.get_index<"bychain"_n>();
-      const auto& contract = idx.get(get_contract_idx(chain, quantity), "contract object not found");
+      const auto& contract = idx.get(global_func::make_int128_index(chain, quantity), "contract object not found");
       if (contract.contract_name == name("relay.token"_n)) {
          INLINE_ACTION_SENDER(relay::token, transfer)( 
             contract.contract_name, 

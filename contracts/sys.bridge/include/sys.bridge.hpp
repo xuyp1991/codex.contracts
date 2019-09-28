@@ -1,6 +1,6 @@
 #pragma once
-#include <eosiolib/eosio.hpp>
-#include <eosiolib/asset.hpp>
+#include <../../codexlib/config.hpp>
+
 using namespace eosio;
 namespace relay{
    enum  class trade_type:int64_t {
@@ -21,8 +21,50 @@ namespace relay{
       coin_market,
       trade_type_count
    };
-   const int64_t PROPORTION_CARD = 10000; 
-   //const name TOKEN = N(relay.token);
+
+   struct [[eosio::table, eosio::contract("sys.bridge")]] trans_contract {
+      uint64_t     id;
+      name chain;
+      asset  quantity;
+      name contract_name;
+
+      uint64_t primary_key()const { return id; }
+      uint128_t get_index_i128() const { return global_func::make_int128_index(chain, quantity); }
+   };
+   typedef eosio::multi_index<"transcon"_n, trans_contract, 
+      eosio::indexed_by<"bychain"_n, eosio::const_mem_fun<trans_contract, uint128_t, &trans_contract::get_index_i128>>> transcon;
+      //fixed cost      think about the Proportionate fee
+   struct trade_fee {
+      asset base;             //fixed
+      asset market;
+      
+      uint64_t    base_ratio;    //Proportionate
+      uint64_t    market_ratio;
+
+      int64_t  fee_type;
+      
+   };
+
+   struct coin {
+      name chain;                //the name of chain
+      asset  amount;             //the coin amont
+      uint64_t  weight;          //coin_base weight 
+      asset fee_amount;          //the fee of the coin
+   };
+
+   struct [[eosio::table, eosio::contract("sys.bridge")]] trade_pair {          
+      name trade_name;          //the name of the trade market
+      int64_t type;          // the trade type 1 for Fixed ratio  2 for bancor(Not yet implemented)
+      coin  base;               //the base coin 
+      coin  market;             //the market coin
+      name   trade_maker;//the account to pay for the trade market
+      bool  isactive =true;      //the sattus of the trade market when isactive is false ,it can exchange
+      trade_fee fee;
+
+      uint64_t primary_key()const { return trade_name.value; }
+   };
+   typedef eosio::multi_index<"tradepairs"_n, trade_pair> tradepairs;
+
    // CONTRACT bridge : public contract {
    class [[eosio::contract("sys.bridge")]] bridge : public contract {
       public:
@@ -117,51 +159,6 @@ namespace relay{
          using claimfee_action = action_wrapper<"claimfee"_n, &bridge::claimfee>;
       private:
          void send_transfer_action(name chain,name recv,asset quantity,std::string memo);
-         inline static uint128_t get_contract_idx(const name& chain, const asset  &a) {
-            return (uint128_t(uint64_t(chain.value)) << 64) + uint128_t(a.symbol.raw());
-         }
-         
-         TABLE trans_contract {
-            uint64_t     id;
-            name chain;
-            asset  quantity;
-            name contract_name;
-
-            uint64_t primary_key()const { return id; }
-            uint128_t get_index_i128() const { return get_contract_idx(chain, quantity); }
-         };
-            //fixed cost      think about the Proportionate fee
-         struct trade_fee {
-            asset base;             //fixed
-            asset market;
-            
-            uint64_t    base_ratio;    //Proportionate
-            uint64_t    market_ratio;
-
-            int64_t  fee_type;
-            
-         };
-
-         struct coin {
-            name chain;                //the name of chain
-            asset  amount;             //the coin amont
-            uint64_t  weight;          //coin_base weight 
-            asset fee_amount;          //the fee of the coin
-         };
-
-         TABLE trade_pair {          
-            name trade_name;          //the name of the trade market
-            int64_t type;          // the trade type 1 for Fixed ratio  2 for bancor(Not yet implemented)
-            coin  base;               //the base coin 
-            coin  market;             //the market coin
-            name   trade_maker;//the account to pay for the trade market
-            bool  isactive =true;      //the sattus of the trade market when isactive is false ,it can exchange
-            trade_fee fee;
-
-            uint64_t primary_key()const { return trade_name.value; }
-         };
-
-         typedef eosio::multi_index<"tradepairs"_n, trade_pair> tradepairs;
-         typedef eosio::multi_index<"transcon"_n, trans_contract, eosio::indexed_by<"bychain"_n, eosio::const_mem_fun<trans_contract, uint128_t, &trans_contract::get_index_i128>>> transcon;
+         const int64_t PROPORTION_CARD = 10000; 
    };
 }
