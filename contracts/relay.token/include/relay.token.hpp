@@ -1,5 +1,5 @@
 #pragma once
-#include <../../codexlib/config.hpp>
+#include <../../codexlib/global.hpp>
 #include <../../force.relay/include/force.relay.hpp>
 
 namespace relay {

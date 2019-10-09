@@ -1,5 +1,5 @@
 #include <sys.bridge.hpp>
-#include <eosiolib/system.hpp>
+//#include <eosiolib/system.hpp>
 #include <math.h>
 //#include <forceio.token/forceio.token.hpp>
 #include <../../relay.token/include/relay.token.hpp>
@@ -52,8 +52,8 @@ namespace relay{
          s = trademarket;
       });
    }
-   ACTION bridge::addmortgage(name trade,name trade_maker,name recharge_account,name coin_chain,asset recharge_amount,int64_t type){
-      require_auth(_self);
+   void bridge::addmortgage(name trade,name trade_maker,name recharge_account,name coin_chain,asset recharge_amount,int64_t type){
+      //require_auth(_self);
 
       tradepairs tradepair( _self,trade_maker.value);
       auto existing = tradepair.find( trade.value );
@@ -120,8 +120,7 @@ namespace relay{
       send_transfer_action(chain_name,recv_account,claim_amount,
          std::string("claim market transfer coin market")); 
    }
-   ACTION bridge::exchange(name trade,name trade_maker,name account_covert,name account_recv,name coin_chain,asset convert_amount,int64_t type){
-      require_auth(_self);
+   void bridge::exchange(name trade,name trade_maker,name account_covert,name account_recv,name coin_chain,asset convert_amount,int64_t type){
 
       tradepairs tradepair( _self,trade_maker.value);
       auto existing = tradepair.find( trade.value );
@@ -432,6 +431,52 @@ namespace relay{
             "the contract is invalid");
       }
    }
+
+   void bridge::onforcetrans( const account_name& from,
+                              const account_name& to,
+                              const asset& quantity,
+                              const string& memo ) {
+      if (from == _self) {
+         return ;
+      }
+      int func_to_call = trade::countChar(memo,';');
+      if (func_to_call == 2) {//addmort
+         trade::sys_bridge_addmort bridge_addmort{memo};
+         addmortgage(bridge_addmort.trade_name,bridge_addmort.trade_maker,from,config::self_chain,quantity,bridge_addmort.type);
+      }
+      else if (func_to_call == 3) { //exchange
+         trade::sys_bridge_exchange bridge_exchange{memo};
+         exchange(bridge_exchange.trade_name,bridge_exchange.trade_maker,from,bridge_exchange.recv,config::self_chain,quantity,bridge_exchange.type);
+      }
+      else {
+         //check(false,"wrong memo");
+      }
+
+
+   }
+
+   void bridge::onrelaytrans( const account_name from,
+                              const account_name to,
+                              const name chain,
+                              const asset quantity,
+                              const string memo ) {
+      if (from == _self) {
+         return ;
+      } 
+
+      int func_to_call = trade::countChar(memo,';');
+      if (func_to_call == 2) {//addmort
+         trade::sys_bridge_addmort bridge_addmort{memo};
+         addmortgage(bridge_addmort.trade_name,bridge_addmort.trade_maker,from,chain,quantity,bridge_addmort.type);
+      }
+      else if (func_to_call == 3) { //exchange
+         trade::sys_bridge_exchange bridge_exchange{memo};
+         exchange(bridge_exchange.trade_name,bridge_exchange.trade_maker,from,bridge_exchange.recv,chain,quantity,bridge_exchange.type);
+      }
+      else {
+         //check(false,"wrong memo");
+      }
+   }
 }
-EOSIO_DISPATCH(relay::bridge, (addmarket)(addmortgage)(claimmortgage)(exchange)(frozenmarket)(trawmarket)(setfixedfee)(setprofee)(setprominfee)(setweight)
-         (settranscon)(removemarket)(claimfee) )
+// EOSIO_DISPATCH(relay::bridge, (addmarket)(addmortgage)(claimmortgage)(exchange)(frozenmarket)(trawmarket)(setfixedfee)(setprofee)(setprominfee)(setweight)
+//          (settranscon)(removemarket)(claimfee) )

@@ -209,8 +209,8 @@ namespace relay {
          stats statstable(_self, it->chain.value);
          auto existing = statstable.find(it->supply.symbol.raw());
          eosio_assert(existing != statstable.end(), "token with symbol already exists");
-         auto price = relay::exchange::get_avg_price(current_block_num(),existing->chain,existing->supply.symbol).amount;
-         total_power += existing->supply.amount * price ;
+         // auto price = relay::exchange::get_avg_price(current_block_num(),existing->chain,existing->supply.symbol).amount;
+         // total_power += existing->supply.amount * price ;
       }
 
       if (total_power == 0) return ;
@@ -218,11 +218,11 @@ namespace relay {
          stats statstable(_self, it->chain.value);
          auto existing = statstable.find(it->supply.symbol.raw());
          eosio_assert(existing != statstable.end(), "token with symbol already exists");
-         auto price = relay::exchange::get_avg_price(current_block_num(),existing->chain,existing->supply.symbol).amount;
-         uint64_t devide_amount = quantity.amount * existing->supply.amount * price / total_power;
-         statstable.modify(*existing, it->chain, [&]( auto& s ) {
-            s.reward_pool += asset(devide_amount,s.reward_pool.symbol);
-         });
+         // auto price = relay::exchange::get_avg_price(current_block_num(),existing->chain,existing->supply.symbol).amount;
+         // uint64_t devide_amount = quantity.amount * existing->supply.amount * price / total_power;
+         // statstable.modify(*existing, it->chain, [&]( auto& s ) {
+         //    s.reward_pool += asset(devide_amount,s.reward_pool.symbol);
+         // });
       }
    }
    /// @abi action

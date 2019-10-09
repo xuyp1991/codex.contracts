@@ -1,5 +1,5 @@
 #pragma once
-#include <../../codexlib/config.hpp>
+#include <../../codexlib/trade.hpp>
 
 using namespace eosio;
 namespace relay{
@@ -85,15 +85,6 @@ namespace relay{
          ACTION addmarket(name trade,name trade_maker,int64_t type,name base_chain,asset base_amount,uint64_t base_weight,
                name market_chain,asset market_amount,uint64_t market_weight);
          /**
-          * add mortgage
-          * trade : the name of the trade market
-          * trade_maker : the account make the trade market 
-          * recharge_account : the account to pay the coin 
-          * recharge_amount ： the amount you add mortgage
-          * type : to distinguish the base coin or the market coin 1 for base coin 2 for market coin
-          */
-         ACTION addmortgage(name trade,name trade_maker,name recharge_account,name coin_chain,asset recharge_amount,int64_t type);
-         /**
           * claim mortgage
           * trade : the name of the trade market
           * trade_maker : the account make the trade market 
@@ -101,16 +92,6 @@ namespace relay{
           * type : to distinguish the base coin or the market coin 1 for base coin 2 for market coin
           */
          ACTION claimmortgage(name trade,name trade_maker,name recv_account,asset claim_amount,int64_t type);
-         /**
-          * exchange the client use this function for exchange two coins
-          * trade : the name of the trade market
-          * trade_maker : the account make the trade market 
-          * account_covert ： the account to pay the coin
-          * account_recv : the account to recv the coin
-          * amount : the amount you pay the coin 
-          * type : to distinguish the exchange 1 for you pay basecoin and recv the market coin  AND 2 for you pay the market coin and recv the base coin
-          */
-         ACTION exchange(name trade,name trade_maker,name account_covert,name account_recv,name coin_chain,asset amount,int64_t type);
          /**
           * forzen market : for the trade maker to frozen the trade market . if the market is frozened it could not use exchage function
           * trade : the name of the trade market
@@ -143,11 +124,22 @@ namespace relay{
          ACTION removemarket(name trade,name trade_maker,name base_recv,name maker_recv);
 
          ACTION claimfee(name trade,name trade_maker,name recv_account,int64_t type);
+
+         [[eosio::on_notify("force::transfer")]]
+         void onforcetrans( const account_name& from,
+                         const account_name& to,
+                         const asset& quantity,
+                         const string& memo );
+
+         [[eosio::on_notify("relay::transfer")]]
+         void onrelaytrans( const account_name from,
+               const account_name to,
+               const name chain,
+               const asset quantity,
+               const string memo );
          
          using addmarket_action = action_wrapper<"addmarket"_n, &bridge::addmarket>;
-         using addmortgage_action = action_wrapper<"addmortgage"_n, &bridge::addmortgage>;
          using claimmortgage_action = action_wrapper<"claimortgage"_n, &bridge::claimmortgage>;
-         using exchange_action = action_wrapper<"exchange"_n, &bridge::exchange>;
          using frozenmarket_action = action_wrapper<"frozenmarket"_n, &bridge::frozenmarket>;
          using trawmarket_action = action_wrapper<"trawmarket"_n, &bridge::trawmarket>;
          using setfixedfee_action = action_wrapper<"setfixedfee"_n, &bridge::setfixedfee>;
@@ -160,5 +152,24 @@ namespace relay{
       private:
          void send_transfer_action(name chain,name recv,asset quantity,std::string memo);
          const int64_t PROPORTION_CARD = 10000; 
+          /**
+          * exchange the client use this function for exchange two coins
+          * trade : the name of the trade market
+          * trade_maker : the account make the trade market 
+          * account_covert ： the account to pay the coin
+          * account_recv : the account to recv the coin
+          * amount : the amount you pay the coin 
+          * type : to distinguish the exchange 1 for you pay basecoin and recv the market coin  AND 2 for you pay the market coin and recv the base coin
+          */
+         void exchange(name trade,name trade_maker,name account_covert,name account_recv,name coin_chain,asset amount,int64_t type);
+         /**
+          * add mortgage
+          * trade : the name of the trade market
+          * trade_maker : the account make the trade market 
+          * recharge_account : the account to pay the coin 
+          * recharge_amount ： the amount you add mortgage
+          * type : to distinguish the base coin or the market coin 1 for base coin 2 for market coin
+          */
+         void addmortgage(name trade,name trade_maker,name recharge_account,name coin_chain,asset recharge_amount,int64_t type);
    };
 }

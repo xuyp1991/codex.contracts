@@ -24,6 +24,7 @@ enum  class func_type:uint64_t {
 };
 
 namespace global_func {
+
    uint64_t char_to_symbol( char c ) {
       if( c >= 'a' && c <= 'z' )
          return (c - 'a') + 6;
@@ -53,9 +54,8 @@ namespace global_func {
    inline uint128_t make_int128_index(const name& chain, const asset  &a) {
       return (uint128_t(uint64_t(chain.value)) << 64) + uint128_t(a.symbol.raw());
    }
+   
 }
-
-
 
 namespace config {
 
@@ -66,6 +66,8 @@ namespace config {
    static constexpr eosio::name bridge_account{"sys.bridge"_n};
    static constexpr eosio::name match_account{"sys.match"_n};
    static constexpr eosio::name relay_token_account{"relay.token"_n};
+
+   static constexpr eosio::name self_chain{"force.token"_n};
 
    static constexpr uint32_t FROZEN_DELAY = 3*24*60*60;
    static constexpr int NUM_OF_TOP_BPS = 21;

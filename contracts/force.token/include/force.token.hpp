@@ -1,5 +1,5 @@
 #pragma once
-#include <../../codexlib/config.hpp>
+#include <../../codexlib/global.hpp>
 
 namespace force {
    using std::string;

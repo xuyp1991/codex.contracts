@@ -1,6 +1,6 @@
 #pragma once
 #include <eosiolib/transaction.hpp>
-#include <../../codexlib/config.hpp>
+#include <../../codexlib/global.hpp>
 
 namespace eosio {
    using std::vector;
